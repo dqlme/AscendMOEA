@@ -54,7 +54,7 @@ def _component_value(block: torch.Tensor, function: str) -> torch.Tensor:
 
 
 class LSMOP(Problem):
-    """Implement the LSMOP vectorized optimization problem."""
+    """Define the LSMOP benchmark with batched tensor evaluation."""
 
     def __init__(
         self,
@@ -65,7 +65,7 @@ class LSMOP(Problem):
         max_fe=10000,
         nk: int = 5,
     ):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.problem_id = int(problem_id)
         self.nk = int(nk)
         self.sublen: list[int] = []

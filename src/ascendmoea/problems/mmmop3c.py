@@ -6,10 +6,10 @@ from .mmo_base import MMOProblem
 
 
 class MMMOP3C(MMOProblem):
-    """Implement the MMMOP3C vectorized optimization problem."""
+    """Define the MMMOP3C benchmark with batched tensor evaluation."""
 
     name = "MMMOP3C"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(49, **kwargs)

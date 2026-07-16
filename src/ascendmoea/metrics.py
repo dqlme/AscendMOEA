@@ -18,6 +18,18 @@ def _cdist(a: torch.Tensor, b: torch.Tensor):
     return pairwise_dist(a, b)
 
 
+def _reference_tensor(reference, like: torch.Tensor) -> torch.Tensor | None:
+    """Normalize a nonempty two-dimensional reference set."""
+    if reference is None:
+        return None
+    value = to_tensor(reference, device=like.device, dtype=like.dtype)
+    if value.ndim == 1:
+        value = value.unsqueeze(0)
+    if value.ndim != 2 or value.shape[0] == 0:
+        return None
+    return value
+
+
 def igd(pop: Population, optimum) -> float:
     """Compute inverted generational distance (IGD).
 
@@ -25,8 +37,8 @@ def igd(pop: Population, optimum) -> float:
     feasible nondominated solution. Lower values are better.
     """
     b = _best(pop).objs
-    optimum = to_tensor(optimum, device=b.device, dtype=b.dtype)
-    if b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
+    optimum = _reference_tensor(optimum, b)
+    if optimum is None or b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
         return float("nan")
     return float(torch.mean(torch.min(_cdist(optimum, b), dim=1).values).item())
 
@@ -34,8 +46,8 @@ def igd(pop: Population, optimum) -> float:
 def gd(pop: Population, optimum) -> float:
     """Compute generational distance from the approximation to the reference."""
     b = _best(pop).objs
-    optimum = to_tensor(optimum, device=b.device, dtype=b.dtype)
-    if b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
+    optimum = _reference_tensor(optimum, b)
+    if optimum is None or b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
         return float("nan")
     dist = torch.min(_cdist(b, optimum), dim=1).values
     return float((torch.linalg.norm(dist) / max(1, dist.numel())).item())
@@ -44,8 +56,8 @@ def gd(pop: Population, optimum) -> float:
 def igdp(pop: Population, optimum) -> float:
     """Compute the dominance-aware IGD+ indicator under minimization."""
     b = _best(pop).objs
-    optimum = to_tensor(optimum, device=b.device, dtype=b.dtype)
-    if b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
+    optimum = _reference_tensor(optimum, b)
+    if optimum is None or b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
         return float("nan")
     diff = torch.clamp(b.unsqueeze(0) - optimum.unsqueeze(1), min=0.0)
     distance = torch.linalg.vector_norm(diff, dim=2)
@@ -55,8 +67,8 @@ def igdp(pop: Population, optimum) -> float:
 def delta_p(pop: Population, optimum) -> float:
     """Compute the maximum of forward and inverse mean nearest distances."""
     b = _best(pop).objs
-    optimum = to_tensor(optimum, device=b.device, dtype=b.dtype)
-    if b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
+    optimum = _reference_tensor(optimum, b)
+    if optimum is None or b.shape[0] == 0 or b.shape[1] != optimum.shape[1]:
         return float("nan")
     dist = _cdist(optimum, b)
     return float(
@@ -70,8 +82,8 @@ def delta_p(pop: Population, optimum) -> float:
 def igdx(pop: Population, pos) -> float:
     """Compute inverted generational distance in decision space (IGDX)."""
     dec = pop.decs
-    pos = to_tensor(pos, device=dec.device, dtype=dec.dtype)
-    if dec.shape[0] == 0 or dec.shape[1] != pos.shape[1]:
+    pos = _reference_tensor(pos, dec)
+    if pos is None or dec.shape[0] == 0 or dec.shape[1] != pos.shape[1]:
         return float("nan")
     return float(torch.mean(torch.min(_cdist(pos, dec), dim=1).values).item())
 
@@ -79,8 +91,8 @@ def igdx(pop: Population, pos) -> float:
 def coverage_rate(pop: Population, pos) -> float:
     """Compute geometric-mean decision-range coverage against a reference set."""
     dec = pop.decs
-    pos = to_tensor(pos, device=dec.device, dtype=dec.dtype)
-    if dec.shape[0] == 0 or dec.shape[1] != pos.shape[1]:
+    pos = _reference_tensor(pos, dec)
+    if pos is None or dec.shape[0] == 0 or dec.shape[1] != pos.shape[1]:
         return float("nan")
 
     reference_min = torch.min(pos, dim=0).values
@@ -113,14 +125,16 @@ def psp(pop: Population, pos) -> float:
 
 def feasible_rate(pop: Population, _optimum=None) -> float:
     """Return the fraction of individuals satisfying every inequality constraint."""
+    if len(pop) == 0:
+        return float("nan")
     return float(torch.mean((torch.all(pop.cons <= 0, dim=1)).to(pop.cons.dtype)).item())
 
 
 def dm(pop: Population, optimum) -> float:
     """Compute the diversity metric (DM) over occupied reference-grid cells."""
     p = _best(pop).objs
-    optimum = to_tensor(optimum, device=p.device, dtype=p.dtype)
-    if p.shape[0] == 0 or p.shape[1] != optimum.shape[1]:
+    optimum = _reference_tensor(optimum, p)
+    if optimum is None or p.shape[0] == 0 or p.shape[1] != optimum.shape[1]:
         return float("nan")
     fmax = torch.max(optimum, dim=0).values
     fmin = torch.min(optimum, dim=0).values
@@ -128,7 +142,7 @@ def dm(pop: Population, optimum) -> float:
     def cal_grid(arr, maxv, minv, div):
         """Compute cal grid."""
         n, m = arr.shape
-        d = (maxv - minv) / max(div, 1)
+        d = torch.clamp(maxv - minv, min=torch.finfo(arr.dtype).eps) / max(div, 1)
         gloc = torch.ceil(
             (arr - minv.unsqueeze(0).expand(n, -1)) / d.unsqueeze(0).expand(n, -1)
         ).to(torch.long)
@@ -171,8 +185,8 @@ def dm(pop: Population, optimum) -> float:
 def cpf(pop: Population, optimum) -> float:
     """Compute coverage over the mapped Pareto-front manifold (CPF)."""
     p = _best(pop).objs
-    optimum = to_tensor(optimum, device=p.device, dtype=p.dtype)
-    if p.shape[0] == 0 or p.shape[1] != optimum.shape[1]:
+    optimum = _reference_tensor(optimum, p)
+    if optimum is None or p.shape[0] == 0 or p.shape[1] != optimum.shape[1]:
         return float("nan")
 
     def map_to_cube(x, pf):
@@ -181,7 +195,13 @@ def cpf(pop: Population, optimum) -> float:
         x = x - ((torch.sum(x, dim=1) - 1)[:, None] / m).expand(-1, m)
         pf = pf - ((torch.sum(pf, dim=1) - 1)[:, None] / m).expand(-1, m)
         x = x - torch.min(pf, dim=0).values.unsqueeze(0).expand(x.shape[0], -1)
-        x = x / (torch.sum(x, dim=1)[:, None].expand(-1, m))
+        denominator = torch.sum(x, dim=1, keepdim=True)
+        denominator = torch.where(
+            torch.abs(denominator) < torch.finfo(x.dtype).eps,
+            torch.ones_like(denominator),
+            denominator,
+        )
+        x = x / denominator
         x = torch.clamp(x, min=1e-6)
         c = torch.ones((n, m), dtype=x.dtype, device=x.device)
         for j in range(1, m):
@@ -214,8 +234,9 @@ def cpf(pop: Population, optimum) -> float:
     if optimum.shape[0] > 1:
         fmin = torch.min(optimum, dim=0).values
         fmax = torch.max(optimum, dim=0).values
-        p = (p - fmin) / (fmax - fmin)
-        optimum = (optimum - fmin) / (fmax - fmin)
+        span = torch.clamp(fmax - fmin, min=torch.finfo(p.dtype).eps)
+        p = (p - fmin) / span
+        optimum = (optimum - fmin) / span
         close = torch.argmin(_cdist(p, optimum), dim=1)
         p = optimum[close]
         vpf = coverage(map_to_cube(optimum, optimum), float("inf"))
@@ -224,7 +245,7 @@ def cpf(pop: Population, optimum) -> float:
 
     fmin = torch.min(p, dim=0).values
     fmax = torch.max(p, dim=0).values
-    p = (p - fmin) / (fmax - fmin)
+    p = (p - fmin) / torch.clamp(fmax - fmin, min=torch.finfo(p.dtype).eps)
     return float(coverage(map_to_cube(p, p), 1 / p.shape[0]).item())
 
 
@@ -236,14 +257,15 @@ def hv(pop: Population, optimum) -> float:
     Higher values are better.
     """
     p = _best(pop).objs
-    optimum = to_tensor(optimum, device=p.device, dtype=p.dtype)
-    if p.shape[0] == 0 or p.shape[1] != optimum.shape[1]:
+    optimum = _reference_tensor(optimum, p)
+    if optimum is None or p.shape[0] == 0 or p.shape[1] != optimum.shape[1]:
         return float("nan")
     fmin = torch.minimum(
         torch.min(p, dim=0).values, torch.zeros(p.shape[1], dtype=p.dtype, device=p.device)
     )
     fmax = torch.max(optimum, dim=0).values
-    p = (p - fmin) / ((fmax - fmin) * 1.1)
+    span = torch.clamp(fmax - fmin, min=torch.finfo(p.dtype).eps)
+    p = (p - fmin) / (span * 1.1)
     p = p[torch.all(p <= 1, dim=1)]
     if p.shape[0] == 0:
         return 0.0

@@ -8,7 +8,7 @@ from itertools import combinations
 
 import torch
 
-from .core import Population, matlab_round, to_tensor
+from .core import Population, round_half_away_from_zero, to_tensor
 from .device import real_dtype_for_device, select_device
 
 _UNIFORM_POINT_CACHE: dict[tuple[int, int, torch.dtype], torch.Tensor] = {}
@@ -27,6 +27,8 @@ def domination_matrix(pop_obj: torch.Tensor) -> torch.Tensor:
         A Boolean matrix where element ``(i, j)`` is true when row ``i``
         dominates row ``j`` under minimization.
     """
+    if pop_obj.ndim != 2 or pop_obj.shape[1] == 0:
+        raise ValueError("pop_obj must have shape (N, M) with M >= 1")
     less_equal = pop_obj[:, None, :] <= pop_obj[None, :, :]
     less = pop_obj[:, None, :] < pop_obj[None, :, :]
     return torch.all(less_equal, dim=2) & torch.any(less, dim=2)
@@ -52,6 +54,12 @@ def nd_sort(
         A pair containing each individual's front number and the last assigned
         front number.
     """
+    if pop_obj.ndim != 2 or pop_obj.shape[1] == 0:
+        raise ValueError("pop_obj must have shape (N, M) with M >= 1")
+    if pop_con is not None and (pop_con.ndim != 2 or pop_con.shape[0] != pop_obj.shape[0]):
+        raise ValueError("pop_con must be a matrix with the same row count as pop_obj")
+    if n_sort < 0:
+        raise ValueError("n_sort must be nonnegative")
     obj = pop_obj.clone()
     n = obj.shape[0]
     if pop_con is not None:
@@ -89,6 +97,8 @@ def tournament_selection(k: int, n: int, *fitness: torch.Tensor) -> torch.Tensor
     if k < 1 or n < 0 or not fitness:
         raise ValueError("tournament_selection requires k >= 1, n >= 0, and fitness")
     fit = torch.column_stack([f.reshape(-1) for f in fitness])
+    if fit.shape[0] == 0:
+        raise ValueError("fitness arrays must not be empty")
     if any(f.numel() != fit.shape[0] for f in fitness):
         raise ValueError("all fitness arrays must have the same number of elements")
     parents = torch.randint(0, fit.shape[0], (k, n), device=fit.device)
@@ -108,6 +118,10 @@ def crowding_distance(pop_obj: torch.Tensor, front_no: torch.Tensor) -> torch.Te
     Boundary points receive infinity. The returned vector has one value per
     row of ``pop_obj`` and remains on the same device.
     """
+    if pop_obj.ndim != 2 or pop_obj.shape[1] == 0:
+        raise ValueError("pop_obj must have shape (N, M) with M >= 1")
+    if front_no.ndim != 1 or front_no.numel() != pop_obj.shape[0]:
+        raise ValueError("front_no must contain one value per objective row")
     n, m = pop_obj.shape
     cd = torch.zeros(n, dtype=pop_obj.dtype, device=pop_obj.device)
     fronts = torch.unique(front_no[torch.isfinite(front_no)]).tolist()
@@ -262,7 +276,7 @@ def _ga_label(
     if half:
         random_label = torch.randint(1, d + 1, (n, d), device=offspring.device).to(offspring.dtype)
     else:
-        random_label = matlab_round(
+        random_label = round_half_away_from_zero(
             torch.rand((n, d), dtype=offspring.dtype, device=offspring.device)
             * (upper - lower).unsqueeze(0)
             + lower.unsqueeze(0)
@@ -397,6 +411,10 @@ def operator_ga(
         A tensor of offspring decisions on the problem device.
     """
     parent_dec = to_tensor(parent_dec, device=problem.device)
+    if parent_dec.ndim != 2 or parent_dec.shape[1] != problem.D:
+        raise ValueError(f"parent_dec must have shape (N, D={problem.D})")
+    if parent_dec.shape[0] < 2:
+        raise ValueError("operator_ga requires at least two parent rows")
     pair_count = parent_dec.shape[0] // 2
     parent1 = parent_dec[:pair_count]
     parent2 = parent_dec[pair_count : pair_count * 2]
@@ -467,6 +485,10 @@ def operator_de(
     p1 = to_tensor(p1, device=problem.device)
     p2 = to_tensor(p2, device=problem.device)
     p3 = to_tensor(p3, device=problem.device)
+    if p1.ndim != 2 or p1.shape[1] != problem.D:
+        raise ValueError(f"p1 must have shape (N, D={problem.D})")
+    if p2.shape != p1.shape or p3.shape != p1.shape:
+        raise ValueError("p1, p2, and p3 must have identical shapes")
     n, d = p1.shape
     device = p1.device
     dtype = p1.dtype
@@ -478,8 +500,12 @@ def operator_de(
 
 
 def roulette_selection(n: int, fitness: torch.Tensor) -> torch.Tensor:
-    """Draw ``n`` indices with inverse-fitness roulette probabilities."""
+    """Draw ``n`` indices with probabilities inverse to minimized fitness."""
+    if n < 0:
+        raise ValueError("n must be nonnegative")
     fit = fitness.reshape(-1)
+    if fit.numel() == 0 or not torch.all(torch.isfinite(fit)):
+        raise ValueError("fitness must be nonempty and finite")
     if not fit.is_floating_point():
         fit = fit.to(torch.get_default_dtype())
     fit = (
@@ -504,6 +530,8 @@ def uniform_point(n: int, m: int, device: torch.device = None) -> tuple[torch.Te
     Returns:
         The generated reference vectors and their actual count.
     """
+    if n < 1 or m < 2:
+        raise ValueError("uniform_point requires n >= 1 and m >= 2")
     if device is None:
         device = select_device()
     dtype = real_dtype_for_device(device)
@@ -594,7 +622,7 @@ def pairwise_dist(a: torch.Tensor, b: torch.Tensor):
 
 
 def sequential_distance_truncation(distance: torch.Tensor, delete_count: int) -> torch.Tensor:
-    """Apply MATLAB sortrows-based sequential distance truncation exactly."""
+    """Apply deterministic sequential truncation using stable distance orderings."""
     if distance.ndim != 2 or distance.shape[0] != distance.shape[1]:
         raise ValueError("distance must be a square matrix")
     n = distance.shape[0]
@@ -696,9 +724,11 @@ def reset_sequential_truncation_diagnostics() -> None:
 
 
 def warmup_sequential_truncation_accelerator(
-    dtype: torch.dtype,
+    dtype: torch.dtype | None = None,
 ) -> dict[str, object]:
     """Compile and validate the optional exact CPU truncation accelerator."""
+    if dtype is None:
+        dtype = torch.get_default_dtype()
     mode = os.environ.get("ASCENDMOEA_COMPILED_TRUNCATION", "auto").strip().lower()
     if mode not in {"auto", "off", "required"}:
         raise ValueError("ASCENDMOEA_COMPILED_TRUNCATION must be auto, off, or required")

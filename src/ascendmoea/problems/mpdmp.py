@@ -11,12 +11,12 @@ from ..utils import pairwise_dist
 
 
 class MPDMP(Problem):
-    """Implement the MPDMP vectorized optimization problem."""
+    """Define the MPDMP benchmark with batched tensor evaluation."""
 
     name = "MPDMP"
 
     def __init__(self, n=100, m=10, max_fe=10000, lower=-100.0, upper=100.0):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.bound_lower = float(lower)
         self.bound_upper = float(upper)
         super().__init__(n=n, m=max(int(m), 3), d=2, max_fe=max_fe)
@@ -36,7 +36,7 @@ class MPDMP(Problem):
 
     @Problem.device.setter
     def device(self, value) -> None:
-        """Compute device."""
+        """Move both base problem state and polygon vertices to a device."""
         Problem.device.fset(self, value)
         if hasattr(self, "points"):
             self.points = self.points.to(device=self.device, dtype=self.dtype)

@@ -10,12 +10,12 @@ from .real_world_base import field, load_mat, tensor
 
 
 class SparsePO(Problem):
-    """Implement the SparsePO vectorized optimization problem."""
+    """Define the SparsePO benchmark with batched tensor evaluation."""
 
     name = "Sparse_PO"
 
     def __init__(self, n=100, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(n=n, m=2, d=1000, max_fe=max_fe)
 
     def setting(self) -> None:

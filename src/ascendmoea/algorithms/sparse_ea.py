@@ -17,7 +17,7 @@ from .sparse_common import (
 
 
 class SparseEA(Algorithm):
-    """Implement the SparseEA multi-objective evolutionary algorithm."""
+    """Evolve decision values and sparse activation masks jointly."""
 
     name = "SparseEA"
 

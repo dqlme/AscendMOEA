@@ -6,10 +6,10 @@ from .mmo_base import MMOProblem
 
 
 class IDMPM3T2(MMOProblem):
-    """Implement the IDMPM3T2 vectorized optimization problem."""
+    """Define the IDMPM3T2 benchmark with batched tensor evaluation."""
 
     name = "IDMPM3T2"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(28, **kwargs)

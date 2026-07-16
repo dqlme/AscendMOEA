@@ -17,15 +17,23 @@ from .sparse_common import (
 
 
 class TSSparseEA(Algorithm):
-    """Implement the TSSparseEA multi-objective evolutionary algorithm."""
+    """Perform group-level mask discovery before sparse population evolution."""
 
     name = "TS-SparseEA"
 
     def __init__(self, save: int = -10, r_eva: float = 0.1, n_group: int = 50):
-        """Initialize the instance."""
+        """Configure the initial group-optimization stage.
+
+        Args:
+            save: History retention policy inherited from :class:`Algorithm`.
+            r_eva: Fraction of the evaluation budget assigned to group search.
+            n_group: Number of variables represented by each search group.
+        """
         super().__init__(save=save)
         self.r_eva = float(r_eva)
         self.n_group = int(n_group)
+        if not 0 < self.r_eva <= 1 or self.n_group < 1:
+            raise ValueError("r_eva must be in (0, 1] and n_group must be positive")
 
     @staticmethod
     def _operator(
@@ -56,13 +64,16 @@ class TSSparseEA(Algorithm):
 
     @staticmethod
     def _cosine_similarity(mask: torch.Tensor, normalized_dec: torch.Tensor) -> torch.Tensor:
-        """Compute cosine similarity."""
+        """Compare masks and decisions by protected cosine similarity."""
+        tiny = torch.finfo(normalized_dec.dtype).tiny
         mask_real = mask.to(normalized_dec.dtype)
-        mask_real = mask_real / torch.linalg.vector_norm(mask_real, dim=1, keepdim=True)
+        mask_real = mask_real / torch.linalg.vector_norm(
+            mask_real, dim=1, keepdim=True
+        ).clamp_min(tiny)
         normalized_dec = normalized_dec / torch.linalg.vector_norm(
             normalized_dec, dim=1, keepdim=True
-        )
-        return torch.clamp(mask_real @ normalized_dec.T, max=1)
+        ).clamp_min(tiny)
+        return torch.clamp(mask_real @ normalized_dec.T, min=-1, max=1)
 
     @classmethod
     def _match_independent(
@@ -70,7 +81,8 @@ class TSSparseEA(Algorithm):
     ) -> torch.Tensor:
         """Compute match independent."""
         span = problem.upper - problem.lower
-        normalized = (dec - problem.lower) / span
+        safe_span = span.clamp_min(torch.finfo(problem.dtype).eps)
+        normalized = (dec - problem.lower) / safe_span
         similarity = cls._cosine_similarity(mask, normalized)
         selected = torch.argmax(similarity, dim=1)
         matched = normalized[selected]
@@ -82,7 +94,8 @@ class TSSparseEA(Algorithm):
     ) -> torch.Tensor:
         """Compute match one to one."""
         span = problem.upper - problem.lower
-        normalized = (dec - problem.lower) / span
+        safe_span = span.clamp_min(torch.finfo(problem.dtype).eps)
+        normalized = (dec - problem.lower) / safe_span
         similarity = cls._cosine_similarity(mask, normalized)
         order = torch.randperm(mask.shape[0], device=problem.device)
         if normalized.device.type == "npu":

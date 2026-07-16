@@ -4,10 +4,10 @@ from .zdt_base import ZDT
 
 
 class ZDT4(ZDT):
-    """Implement the ZDT4 vectorized optimization problem."""
+    """Define the ZDT4 benchmark with batched tensor evaluation."""
 
     name = "ZDT4"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(4, **kwargs)

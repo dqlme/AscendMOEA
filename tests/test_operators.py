@@ -1,5 +1,6 @@
 """Behavioral tests for public tensorized population operators."""
 
+import pytest
 import torch
 
 from ascendmoea.operators import (
@@ -49,3 +50,12 @@ def test_encoded_genetic_operator_accepts_real_problems() -> None:
     assert offspring.device == parents.device
     assert torch.all(offspring >= problem.lower)
     assert torch.all(offspring <= problem.upper)
+
+
+def test_public_operators_reject_invalid_shapes() -> None:
+    """Return descriptive errors instead of relying on broadcast failures."""
+    problem = DTLZ2(n=4, m=3, d=6, max_fe=8)
+    with pytest.raises(ValueError, match="pop_obj"):
+        nd_sort(torch.zeros(4))
+    with pytest.raises(ValueError, match="parent_dec"):
+        operator_ga_encoded(problem, torch.zeros((4, 5)))

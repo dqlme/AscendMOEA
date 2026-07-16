@@ -403,7 +403,7 @@ def _disc_filter_replace(
 
 
 class GANCMOEACD(Algorithm):
-    """Implement the GANCMOEACD multi-objective evolutionary algorithm."""
+    """Augment three-archive constrained search with a conditional GAN."""
 
     name = "GANCMOEACD"
 
@@ -420,7 +420,21 @@ class GANCMOEACD(Algorithm):
         cv_weight: float = 1.0,
         **kwargs,
     ):
-        """Initialize the instance."""
+        """Configure archive selection and conditional-GAN training.
+
+        Args:
+            e1: Exploration archive mode: ``1`` distance, ``2`` crowding,
+                or ``3`` reference-vector association.
+            e2: Feasibility archive mode with the same values as ``e1``.
+            gan_start: Evaluation-budget fraction at which GAN assistance begins.
+            gan_interval: Generations between GAN training sessions.
+            gan_epochs: Training steps per session.
+            latent_dim: Generator latent-vector width.
+            hidden_dim: Width of hidden neural-network layers.
+            gan_lr: Adam learning rate.
+            cv_weight: Constraint-prediction loss weight.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.e1 = int(e1)
         self.e2 = int(e2)
@@ -431,6 +445,12 @@ class GANCMOEACD(Algorithm):
         self.hidden_dim = max(16, int(hidden_dim))
         self.gan_lr = float(gan_lr)
         self.cv_weight = float(cv_weight)
+        if self.e1 not in {1, 2, 3} or self.e2 not in {1, 2, 3}:
+            raise ValueError("e1 and e2 must each be 1, 2, or 3")
+        if not 0 <= self.gan_start <= 1:
+            raise ValueError("gan_start must be between zero and one")
+        if self.gan_lr <= 0 or self.cv_weight < 0:
+            raise ValueError("gan_lr must be positive and cv_weight nonnegative")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause):
         """Execute the vectorized evolutionary loop."""

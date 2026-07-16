@@ -35,18 +35,20 @@ def _cal_cv(constraints: torch.Tensor) -> torch.Tensor:
 
 
 def _cosine_distance(first: torch.Tensor, second: torch.Tensor) -> torch.Tensor:
-    """Compute cosine distance."""
-    first = first / torch.linalg.vector_norm(first, dim=1, keepdim=True)
-    second = second / torch.linalg.vector_norm(second, dim=1, keepdim=True)
-    return torch.clamp(1 - first @ second.T, min=0)
+    """Return pairwise cosine distances with zero-vector protection."""
+    tiny = torch.finfo(first.dtype).tiny
+    first = first / torch.linalg.vector_norm(first, dim=1, keepdim=True).clamp_min(tiny)
+    second = second / torch.linalg.vector_norm(second, dim=1, keepdim=True).clamp_min(tiny)
+    return torch.clamp(1 - first @ second.T, min=0, max=2)
 
 
 def _cal_sde(pop_obj: torch.Tensor) -> torch.Tensor:
-    """Compute cal sde."""
+    """Compute shift-based density estimation for every objective vector."""
     n = pop_obj.shape[0]
     minimum = pop_obj.min(dim=0).values
     maximum = pop_obj.max(dim=0).values
-    normalized = (pop_obj - minimum) / (maximum - minimum)
+    span = (maximum - minimum).clamp_min(torch.finfo(pop_obj.dtype).eps)
+    normalized = (pop_obj - minimum) / span
     shifted = torch.maximum(normalized.unsqueeze(1), normalized.unsqueeze(0))
     distance = torch.linalg.vector_norm(normalized.unsqueeze(1) - shifted, dim=2)
     neighbour = min(n, int(math.floor(math.sqrt(n))) + 1)
@@ -97,15 +99,25 @@ def _environmental_selection(
 
 
 class CMOEAMS(Algorithm):
-    """Implement the CMOEAMS multi-objective evolutionary algorithm."""
+    """Balance objective optimization and feasibility across multiple stages."""
 
     name = "CMOEAMS"
 
     def __init__(self, op_type: int = 1, lam: float = 0.5, **kwargs):
-        """Initialize the instance."""
+        """Configure variation and the feasible-ratio stage threshold.
+
+        Args:
+            op_type: Variation operator, where ``1`` is GA and ``2`` is DE.
+            lam: Feasible-population ratio required to enter the final stage.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.op_type = int(op_type)
         self.lam = float(lam)
+        if self.op_type not in {1, 2}:
+            raise ValueError("op_type must be 1 (GA) or 2 (DE)")
+        if not 0 <= self.lam <= 1:
+            raise ValueError("lam must be between zero and one")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause) -> None:
         """Execute the vectorized evolutionary loop."""

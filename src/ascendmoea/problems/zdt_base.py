@@ -11,7 +11,7 @@ from ..utils import nd_sort
 
 
 class ZDT(Problem):
-    """Implement the ZDT vectorized optimization problem."""
+    """Define the ZDT benchmark with batched tensor evaluation."""
 
     def __init__(
         self,
@@ -20,7 +20,7 @@ class ZDT(Problem):
         d: int | None = None,
         max_fe: int = 10000,
     ):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.problem_id = int(problem_id)
         default_d = 80 if self.problem_id == 5 else (10 if self.problem_id in (4, 6) else 30)
         super().__init__(n=n, m=2, d=default_d if d is None else d, max_fe=max_fe)

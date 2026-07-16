@@ -14,7 +14,7 @@ def main() -> None:
         problem,
         device="cpu",
         cpu_threads=8,
-        seed=20260716,
+        seed=42,
     )
     print(f"device={result.device}")
     print(f"evaluations={result.evaluations}")

@@ -9,12 +9,12 @@ from .real_world_base import cell_matrices, load_mat, repair_permutation, tensor
 
 
 class MOTSP(Problem):
-    """Implement the MOTSP vectorized optimization problem."""
+    """Define the MOTSP benchmark with batched tensor evaluation."""
 
     name = "MOTSP"
 
     def __init__(self, n=100, m=2, d=30, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         if m != 2 or d != 30:
             raise ValueError("the verified MOTSP dataset requires M=2 and D=30")
         super().__init__(n=n, m=m, d=d, max_fe=max_fe)

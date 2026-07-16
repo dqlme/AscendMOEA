@@ -6,10 +6,10 @@ from .mmo_base import MMOProblem
 
 
 class SYMPARTRotated(MMOProblem):
-    """Implement the SYMPARTRotated vectorized optimization problem."""
+    """Define the SYMPARTRotated benchmark with batched tensor evaluation."""
 
     name = "SYM_PART_rotated"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(21, **kwargs)

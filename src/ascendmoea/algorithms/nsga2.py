@@ -9,7 +9,7 @@ from ..utils import crowding_distance, merge_pop, nd_sort, operator_ga, tourname
 
 
 class NSGAII(Algorithm):
-    """Implement the NSGAII multi-objective evolutionary algorithm."""
+    """Select solutions by constrained nondominated rank and crowding distance."""
 
     name = "NSGAII"
 

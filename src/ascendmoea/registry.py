@@ -25,7 +25,7 @@ class ComponentRegistry(MutableMapping[str, type[ComponentT]], Generic[Component
         kind: str,
         components: Iterator[type[ComponentT]] | tuple[type[ComponentT], ...] = (),
     ) -> None:
-        """Initialize the instance."""
+        """Create a registry and register the supplied component classes."""
         self.kind = str(kind)
         self._components: dict[str, type[ComponentT]] = {}
         for component in components:
@@ -96,7 +96,7 @@ class ComponentRegistry(MutableMapping[str, type[ComponentT]], Generic[Component
         """
 
         def decorator(candidate: type[ComponentT]) -> type[ComponentT]:
-            """Compute decorator."""
+            """Validate and store one decorated component class."""
             self._validate_component(candidate)
             public_name = str(name or getattr(candidate, "name", candidate.__name__))
             if not public_name:

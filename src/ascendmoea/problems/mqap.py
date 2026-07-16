@@ -10,12 +10,12 @@ from .real_world_base import cell_matrices, load_mat, repair_permutation, tensor
 
 
 class MQAP(Problem):
-    """Implement the MQAP vectorized optimization problem."""
+    """Define the MQAP benchmark with batched tensor evaluation."""
 
     name = "mQAP"
 
     def __init__(self, n=100, m=2, d=10, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         if m != 2 or d != 10:
             raise ValueError("the verified mQAP dataset requires M=2 and D=10")
         super().__init__(n=n, m=m, d=d, max_fe=max_fe)

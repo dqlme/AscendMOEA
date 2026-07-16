@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from importlib import metadata, resources
 from pathlib import Path
 
 import torch
@@ -27,7 +29,22 @@ from ascendmoea import (
     select_device,
     synchronize,
 )
+from ascendmoea import operators as public_operators
 from ascendmoea.algorithms import ALGORITHMS
+from ascendmoea.metrics import (
+    METRICS,
+    coverage_rate,
+    cpf,
+    delta_p,
+    dm,
+    feasible_rate,
+    gd,
+    hv,
+    igd,
+    igdp,
+    igdx,
+    psp,
+)
 from ascendmoea.operators import (
     crowding_distance,
     differential_evolution_operator,
@@ -142,6 +159,31 @@ def assert_finite(name: str, tensor: torch.Tensor) -> None:
         raise RuntimeError(f"{name} produced non-finite values")
 
 
+def require(condition: bool, message: str) -> None:
+    """Raise a release-validation error when a required invariant is false."""
+    if not condition:
+        raise RuntimeError(message)
+
+
+def installed_version(distribution: str) -> str | None:
+    """Return an installed distribution version without requiring it."""
+    try:
+        return metadata.version(distribution)
+    except metadata.PackageNotFoundError:
+        return None
+
+
+def count_package_resources(node, suffix: str) -> int:
+    """Recursively count package resources with a selected suffix."""
+    total = 0
+    for child in node.iterdir():
+        if child.is_dir():
+            total += count_package_resources(child, suffix)
+        elif child.name.lower().endswith(suffix.lower()):
+            total += 1
+    return total
+
+
 def validate_operators(device: torch.device) -> CheckResult:
     """Exercise every operator exported by the public operator namespace."""
     started = time.perf_counter()
@@ -172,16 +214,25 @@ def validate_operators(device: torch.device) -> CheckResult:
     diagnostics = sequential_truncation_diagnostics()
     accelerator = warmup_sequential_truncation_accelerator(problem.dtype)
 
-    assert matrix.shape == (20, 20)
-    assert counts.shape == (20,)
-    assert parents.shape == (20,) and roulette.shape == (20,)
-    assert encoded_dec.shape == offspring_dec.shape
-    assert de_dec.shape == population.decs.shape
-    assert genetic_operator is operator_ga
-    assert differential_evolution_operator is operator_de
-    assert deleted.shape == (40,) and int(deleted.sum().item()) == 3
-    assert references.shape == (count, 3)
-    assert nondominated.shape == (40,)
+    require(matrix.shape == (20, 20), "domination_matrix returned an invalid shape")
+    require(counts.shape == (20,), "domination_count returned an invalid shape")
+    require(
+        parents.shape == (20,) and roulette.shape == (20,),
+        "selection operators returned invalid shapes",
+    )
+    require(encoded_dec.shape == offspring_dec.shape, "encoded GA returned an invalid shape")
+    require(de_dec.shape == population.decs.shape, "DE returned an invalid shape")
+    require(genetic_operator is operator_ga, "genetic_operator is not the documented alias")
+    require(
+        differential_evolution_operator is operator_de,
+        "differential_evolution_operator is not the documented alias",
+    )
+    require(
+        deleted.shape == (40,) and int(deleted.sum().item()) == 3,
+        "sequential truncation returned an invalid deletion mask",
+    )
+    require(references.shape == (count, 3), "uniform_point returned an invalid shape")
+    require(nondominated.shape == (40,), "non_dominated_mask returned an invalid shape")
     assert_finite("genetic operator", offspring_dec)
     assert_finite("encoded genetic operator", encoded_dec)
     assert_finite("differential evolution operator", de_dec)
@@ -192,11 +243,62 @@ def validate_operators(device: torch.device) -> CheckResult:
         status="ok",
         elapsed_seconds=time.perf_counter() - started,
         details={
-            "operator_count": 19,
+            "operator_count": len(public_operators.__all__),
             "reference_count": count,
             "truncation_diagnostics": diagnostics,
             "accelerator": accelerator,
         },
+    )
+
+
+def validate_metrics(device: torch.device) -> CheckResult:
+    """Exercise every public metric against objective and decision references."""
+    started = time.perf_counter()
+    problem = DTLZ2(n=20, m=3, max_fe=40)
+    problem.device = device
+    population = problem.initialization()
+    objective_reference = problem.optimum
+    decision_reference = population.decs.clone()
+    values = {
+        "IGD": igd(population, objective_reference),
+        "HV": hv(population, objective_reference),
+        "GD": gd(population, objective_reference),
+        "IGDp": igdp(population, objective_reference),
+        "DeltaP": delta_p(population, objective_reference),
+        "DM": dm(population, objective_reference),
+        "CPF": cpf(population, objective_reference),
+        "IGDX": igdx(population, decision_reference),
+        "CR": coverage_rate(population, decision_reference),
+        "PSP": psp(population, decision_reference),
+        "Feasible_rate": feasible_rate(population),
+    }
+    if set(values).difference(METRICS):
+        raise RuntimeError("The metric registry is missing public metrics")
+    nonfinite = {name: value for name, value in values.items() if not torch.isfinite(torch.tensor(value))}
+    if nonfinite:
+        raise RuntimeError(f"Metrics produced non-finite values: {nonfinite}")
+    return CheckResult(
+        category="metrics",
+        name="public_metric_surface",
+        status="ok",
+        elapsed_seconds=time.perf_counter() - started,
+        details={"metric_count": len(METRICS), "values": values},
+    )
+
+
+def validate_resources() -> CheckResult:
+    """Verify that benchmark data are accessible through package resources."""
+    started = time.perf_counter()
+    package_root = resources.files("ascendmoea")
+    mat_count = count_package_resources(package_root.joinpath("vendor"), ".mat")
+    if mat_count < 1:
+        raise RuntimeError("No bundled MAT resources were found")
+    return CheckResult(
+        category="resources",
+        name="bundled_benchmark_data",
+        status="ok",
+        elapsed_seconds=time.perf_counter() - started,
+        details={"mat_files": mat_count},
     )
 
 
@@ -216,7 +318,17 @@ def validate_problems(device: torch.device) -> list[CheckResult]:
         problem = create_problem(name, **problem_kwargs(name))
         problem.device = device
         population = problem.initialization(min(problem.N, 4))
-        assert population.objs.shape == (min(problem.N, 4), problem.M)
+        expected_rows = min(problem.N, 4)
+        require(
+            population.objs.shape == (expected_rows, problem.M),
+            f"{name} returned an invalid objective shape",
+        )
+        require(problem.lower.shape == (problem.D,), f"{name} has invalid lower bounds")
+        require(problem.upper.shape == (problem.D,), f"{name} has invalid upper bounds")
+        require(problem.encoding.shape == (problem.D,), f"{name} has invalid encoding")
+        require(bool(torch.all(problem.lower <= problem.upper).item()), f"{name} has reversed bounds")
+        assert_finite(name + " lower bounds", problem.lower)
+        assert_finite(name + " upper bounds", problem.upper)
         assert_finite(name + " objectives", population.objs)
         assert_finite(name + " constraints", population.cons)
         rows.append(
@@ -264,7 +376,7 @@ def validate_algorithms(
             ),
         ).run()
         population = result.population
-        assert len(population) > 0
+        require(len(population) > 0, f"{name} returned an empty population")
         assert_finite(name + " objectives", population.objs)
         assert_finite(name + " constraints", population.cons)
         rows.append(
@@ -293,7 +405,7 @@ def validate_extensions(
         create_problem("ReleaseCustomProblem"),
         config=RunConfig(device=device, seed=99001, cpu_threads=cpu_threads),
     ).run()
-    assert len(result.population) == 20
+    require(len(result.population) == 20, "custom extension returned an invalid population size")
     assert_finite("custom extension objectives", result.population.objs)
     return CheckResult(
         category="extension",
@@ -329,7 +441,11 @@ def main() -> int:
         raise ValueError(f"Unknown algorithms: {sorted(unknown)}")
 
     started = time.perf_counter()
-    results: list[CheckResult] = [validate_operators(device)]
+    results: list[CheckResult] = [
+        validate_resources(),
+        validate_operators(device),
+        validate_metrics(device),
+    ]
     if not args.skip_problems:
         results.extend(validate_problems(device))
     results.extend(validate_algorithms(device, cpu_threads, selected))
@@ -341,13 +457,20 @@ def main() -> int:
         "checked_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "device": str(device),
         "python": sys.version,
+        "platform": platform.platform(),
         "torch": torch.__version__,
+        "dependencies": {
+            name: installed_version(name)
+            for name in ("numpy", "scipy", "pandas", "plotly", "numba", "torch-npu")
+        },
         "status": "ok",
         "elapsed_seconds": time.perf_counter() - started,
         "counts": {
             "algorithms": sum(row.category == "algorithm" for row in results),
             "problems": sum(row.category == "problem" for row in results),
             "operators": sum(row.category == "operators" for row in results),
+            "metrics": sum(row.category == "metrics" for row in results),
+            "resources": sum(row.category == "resources" for row in results),
             "extensions": sum(row.category == "extension" for row in results),
         },
         "results": [asdict(row) for row in results],

@@ -88,10 +88,10 @@ def _g3(x: torch.Tensor, t: float):
 
 
 class SMOP(Problem):
-    """Implement the SMOP vectorized optimization problem."""
+    """Define the SMOP benchmark with batched tensor evaluation."""
 
     def __init__(self, problem_id: int, n=100, m=2, d=100, max_fe=10000, theta: float = 0.1):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.problem_id = int(problem_id)
         self.theta = float(theta)
         super().__init__(n=n, m=m, d=d, max_fe=max_fe)

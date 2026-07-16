@@ -6,7 +6,7 @@ import math
 
 import torch
 
-from ..core import matlab_round
+from ..core import round_half_away_from_zero
 from .rwmop_base import RWMOPBase
 
 
@@ -26,7 +26,7 @@ class RWMOP1(RWMOPBase):
 
     def cal_obj(self, x):
         """Evaluate objective values for a batch of decision vectors."""
-        x1, x2 = matlab_round(x[:, 0]), matlab_round(x[:, 1])
+        x1, x2 = round_half_away_from_zero(x[:, 0]), round_half_away_from_zero(x[:, 1])
         x3, x4 = x[:, 2], x[:, 3]
         z1 = 0.0625 * x1
         f1 = 1.7781 * z1 * x3**2 + 0.6224 * z1 * x2 * x4 + 3.1661 * z1**2 * x4 + 19.84 * z1**2 * x3
@@ -35,7 +35,7 @@ class RWMOP1(RWMOPBase):
 
     def cal_con(self, x):
         """Evaluate inequality constraints for a batch of decision vectors."""
-        x1, x2 = matlab_round(x[:, 0]), matlab_round(x[:, 1])
+        x1, x2 = round_half_away_from_zero(x[:, 0]), round_half_away_from_zero(x[:, 1])
         x3 = x[:, 2]
         z1, z2 = 0.0625 * x1, 0.0625 * x2
         return torch.column_stack((0.00954 * x3 - z2, 0.0193 * x3 - z1))

@@ -13,7 +13,7 @@ class RWMOPBase(Problem):
     reference_point: tuple[float, ...] = ()
 
     def __init__(self, n=100, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(n=n, m=None, d=None, max_fe=max_fe)
 
     def evaluation(self, dec):

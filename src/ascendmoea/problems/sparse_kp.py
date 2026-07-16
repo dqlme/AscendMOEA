@@ -10,12 +10,12 @@ from .real_world_base import load_mat, tensor
 
 
 class SparseKP(Problem):
-    """Implement the SparseKP vectorized optimization problem."""
+    """Define the SparseKP benchmark with batched tensor evaluation."""
 
     name = "Sparse_KP"
 
     def __init__(self, n=100, m=2, d=250, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         if m != 2 or d != 250:
             raise ValueError("the verified Sparse_KP dataset requires M=2 and D=250")
         super().__init__(n=n, m=m, d=d, max_fe=max_fe)

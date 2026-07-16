@@ -10,12 +10,12 @@ from .real_world_base import load_mat, tensor
 
 
 class MONRP(Problem):
-    """Implement the MONRP vectorized optimization problem."""
+    """Define the MONRP benchmark with batched tensor evaluation."""
 
     name = "MONRP"
 
     def __init__(self, n=100, d=100, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         if d != 100:
             raise ValueError("the verified MONRP dataset requires D=100")
         super().__init__(n=n, m=2, d=d, max_fe=max_fe)

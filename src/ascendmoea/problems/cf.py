@@ -10,7 +10,7 @@ from ..utils import uniform_point
 
 
 class CF1(Problem):
-    """Implement the CF1 vectorized optimization problem."""
+    """Define the CF1 benchmark with batched tensor evaluation."""
 
     name = "CF1"
 
@@ -48,7 +48,7 @@ class CF1(Problem):
 
 
 class CF2(Problem):
-    """Implement the CF2 vectorized optimization problem."""
+    """Define the CF2 benchmark with batched tensor evaluation."""
 
     name = "CF2"
 
@@ -108,7 +108,7 @@ class CF2(Problem):
 
 
 class CF3(Problem):
-    """Implement the CF3 vectorized optimization problem."""
+    """Define the CF3 benchmark with batched tensor evaluation."""
 
     name = "CF3"
 
@@ -185,7 +185,7 @@ class CF3(Problem):
 
 
 class _CF4to7Base(Problem):
-    """Implement the _CF4to7Base vectorized optimization problem."""
+    """Define the _CF4to7Base benchmark with batched tensor evaluation."""
 
     def setting(self):
         """Configure problem dimensions, bounds, encoding, and static data."""
@@ -225,7 +225,7 @@ class _CF4to7Base(Problem):
 
 
 class CF4(_CF4to7Base):
-    """Implement the CF4 vectorized optimization problem."""
+    """Define the CF4 benchmark with batched tensor evaluation."""
 
     name = "CF4"
 
@@ -256,7 +256,7 @@ class CF4(_CF4to7Base):
 
 
 class CF5(_CF4to7Base):
-    """Implement the CF5 vectorized optimization problem."""
+    """Define the CF5 benchmark with batched tensor evaluation."""
 
     name = "CF5"
 
@@ -293,7 +293,7 @@ class CF5(_CF4to7Base):
 
 
 class CF6(_CF4to7Base):
-    """Implement the CF6 vectorized optimization problem."""
+    """Define the CF6 benchmark with batched tensor evaluation."""
 
     name = "CF6"
 
@@ -332,7 +332,7 @@ class CF6(_CF4to7Base):
 
 
 class CF7(_CF4to7Base):
-    """Implement the CF7 vectorized optimization problem."""
+    """Define the CF7 benchmark with batched tensor evaluation."""
 
     name = "CF7"
 
@@ -369,7 +369,7 @@ class CF7(_CF4to7Base):
 
 
 class CF8(Problem):
-    """Implement the CF8 vectorized optimization problem."""
+    """Define the CF8 benchmark with batched tensor evaluation."""
 
     name = "CF8"
 
@@ -435,7 +435,7 @@ class CF8(Problem):
 
 
 class _CF9_10_Base(Problem):
-    """Implement the _CF9_10_Base vectorized optimization problem."""
+    """Define the _CF9_10_Base benchmark with batched tensor evaluation."""
 
     name = ""
 
@@ -513,7 +513,7 @@ class _CF9_10_Base(Problem):
 
 
 class CF9(_CF9_10_Base):
-    """Implement the CF9 vectorized optimization problem."""
+    """Define the CF9 benchmark with batched tensor evaluation."""
 
     name = "CF9"
 
@@ -528,7 +528,7 @@ class CF9(_CF9_10_Base):
 
 
 class CF10(_CF9_10_Base):
-    """Implement the CF10 vectorized optimization problem."""
+    """Define the CF10 benchmark with batched tensor evaluation."""
 
     name = "CF10"
 

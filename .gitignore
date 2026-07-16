@@ -4,8 +4,10 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 build/
 dist/
 *.log
+validation-results/

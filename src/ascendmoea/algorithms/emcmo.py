@@ -68,7 +68,7 @@ def _environmental_selection(
 
 
 class EMCMO(Algorithm):
-    """Implement the EMCMO multi-objective evolutionary algorithm."""
+    """Adaptively transfer candidates between constrained auxiliary populations."""
 
     name = "EMCMO"
 

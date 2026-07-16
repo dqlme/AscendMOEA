@@ -61,7 +61,7 @@ def _spherical_shape(theta: torch.Tensor) -> torch.Tensor:
 
 
 class DTLZ(Problem):
-    """Implement the DTLZ vectorized optimization problem."""
+    """Define the DTLZ benchmark with batched tensor evaluation."""
 
     def __init__(
         self,
@@ -71,7 +71,7 @@ class DTLZ(Problem):
         d: int | None = None,
         max_fe: int = 10000,
     ):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.problem_id = int(problem_id)
         if d is None:
             d = m + (4 if self.problem_id == 1 else 19 if self.problem_id == 7 else 9)

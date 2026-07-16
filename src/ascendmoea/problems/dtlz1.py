@@ -4,10 +4,10 @@ from .dtlz_base import DTLZ
 
 
 class DTLZ1(DTLZ):
-    """Implement the DTLZ1 vectorized optimization problem."""
+    """Define the DTLZ1 benchmark with batched tensor evaluation."""
 
     name = "DTLZ1"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(1, **kwargs)

@@ -12,7 +12,7 @@ def run(device: str) -> float:
         DTLZ2(n=1000, m=3, max_fe=100_000),
         device=device,
         cpu_threads=8 if device == "cpu" else None,
-        seed=20260716,
+        seed=42,
     )
     return result.elapsed_seconds
 

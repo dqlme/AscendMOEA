@@ -6,7 +6,7 @@ import random
 
 import torch
 
-from ..core import Algorithm, Population, Problem, matlab_round
+from ..core import Algorithm, Population, Problem, round_half_away_from_zero
 from ..utils import crowding_distance, merge_pop, operator_de, operator_ga, uniform_point
 from .spea_common import truncation
 
@@ -38,14 +38,15 @@ def _concat(a: Population, b: Population) -> Population:
 
 
 def _cosine_similarity(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    """Compute cosine similarity."""
-    a = a / torch.linalg.vector_norm(a, dim=1, keepdim=True)
-    b = b / torch.linalg.vector_norm(b, dim=1, keepdim=True)
-    return torch.clamp(a @ b.T, max=1)
+    """Return pairwise cosine similarities with zero-vector protection."""
+    tiny = torch.finfo(a.dtype).tiny
+    a = a / torch.linalg.vector_norm(a, dim=1, keepdim=True).clamp_min(tiny)
+    b = b / torch.linalg.vector_norm(b, dim=1, keepdim=True).clamp_min(tiny)
+    return torch.clamp(a @ b.T, min=-1, max=1)
 
 
 def _truncation(pop_obj: torch.Tensor, k: int) -> torch.Tensor:
-    """Apply MATLAB's lexicographic distance truncation."""
+    """Apply stable lexicographic distance truncation."""
     return truncation(pop_obj, k)
 
 
@@ -57,7 +58,7 @@ def _crowding_distance_all(pop_obj: torch.Tensor) -> torch.Tensor:
 
 def _domination_cal(pop: Population, add: int) -> torch.Tensor:
     """Compute domination cal."""
-    pop_obj = matlab_round(pop.objs * 1e10) / 1e10
+    pop_obj = round_half_away_from_zero(pop.objs * 1e10) / 1e10
     cons = torch.sum(torch.clamp(pop.cons, min=0.0), dim=1)
 
     less_eq = pop_obj[:, None, :] <= pop_obj[None, :, :]
@@ -96,7 +97,7 @@ def _forward_exploration_archive(
         return _subset(fa, torch.cat([torch.arange(p, device=pop_obj.device), add_idx], dim=0))
 
     zmax = torch.max(pop_obj, dim=0).values
-    obj_n = (pop_obj - zmin) / (zmax - zmin)
+    obj_n = (pop_obj - zmin) / (zmax - zmin).clamp_min(torch.finfo(pop_obj.dtype).eps)
 
     if mode == 1:
         delete = _truncation(obj_n, p - ns)
@@ -108,7 +109,7 @@ def _forward_exploration_archive(
     w, ns = uniform_point(ns, m, device=pop_obj.device)
     distance = torch.sqrt(torch.sum(obj_n**2, dim=1))
 
-    # MATLAB uses sin(acos(cosine)); this is algebraically equivalent.
+    # Evaluate sin(arccos(cosine)) through its stable algebraic identity.
     sim = _cosine_similarity(w, obj_n)
     angle_sin = torch.sqrt(torch.clamp(1.0 - sim**2, min=0.0))
     fit_matrix = distance.unsqueeze(0) * angle_sin
@@ -138,7 +139,7 @@ def _feasibility_exploitation_archive(
     pop_obj = fea.objs
     zmin = torch.min(pop_obj, dim=0).values - 1e-6
     zmax = torch.max(pop_obj, dim=0).values
-    obj_n = (pop_obj - zmin) / (zmax - zmin)
+    obj_n = (pop_obj - zmin) / (zmax - zmin).clamp_min(torch.finfo(pop_obj.dtype).eps)
 
     if mode == 1:
         delete = _truncation(obj_n, fea.decs.shape[0] - n)
@@ -150,7 +151,7 @@ def _feasibility_exploitation_archive(
     w, n = uniform_point(n, m, device=pop_obj.device)
     distance = torch.sqrt(torch.sum(obj_n**2, dim=1))
 
-    # MATLAB uses sin(acos(cosine)); this is algebraically equivalent.
+    # Evaluate sin(arccos(cosine)) through its stable algebraic identity.
     sim = _cosine_similarity(w, obj_n)
     angle_sin = torch.sqrt(torch.clamp(1.0 - sim**2, min=0.0))
     fit_matrix = distance.unsqueeze(0) * angle_sin
@@ -180,10 +181,10 @@ def _diversity_enhancement_archive(
     else:
         zmax = obj[torch.argmin(cv)]
 
-    obj_n = (obj - zmin) / (zmax - zmin)
+    obj_n = (obj - zmin) / (zmax - zmin).clamp_min(torch.finfo(obj.dtype).eps)
 
     sim_sw = _cosine_similarity(w, obj_n)
-    # Match MATLAB: compare sin(acos(cosine)) with angular threshold h.
+    # Compare sin(arccos(cosine)) with the angular threshold.
     angle_sw = torch.sqrt(torch.clamp(1 - sim_sw**2, min=0))
 
     lst_mask = angle_sw <= h
@@ -206,15 +207,24 @@ def _diversity_enhancement_archive(
 
 
 class CMOEACD(Algorithm):
-    """Implement the CMOEACD multi-objective evolutionary algorithm."""
+    """Coordinate exploration, feasibility, and diversity archives."""
 
     name = "CMOEACD"
 
     def __init__(self, e1: int = 1, e2: int = 1, **kwargs):
-        """Initialize the instance."""
+        """Configure environmental selection for two external archives.
+
+        Args:
+            e1: Exploration archive mode: ``1`` distance, ``2`` crowding,
+                or ``3`` reference-vector association.
+            e2: Feasibility archive mode with the same values as ``e1``.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.e1 = int(e1)
         self.e2 = int(e2)
+        if self.e1 not in {1, 2, 3} or self.e2 not in {1, 2, 3}:
+            raise ValueError("e1 and e2 must each be 1, 2, or 3")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause):
         """Execute the vectorized evolutionary loop."""

@@ -6,10 +6,10 @@ from .mmo_base import MMOProblem
 
 
 class RLP(MMOProblem):
-    """Implement the RLP vectorized optimization problem."""
+    """Define the RLP benchmark with batched tensor evaluation."""
 
     name = "RLP"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(73, **kwargs)

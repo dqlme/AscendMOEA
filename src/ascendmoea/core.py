@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import math
+import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable
 
@@ -37,8 +39,8 @@ def to_numpy(x):
     return x
 
 
-def matlab_round(x: torch.Tensor) -> torch.Tensor:
-    """Round ties away from zero, matching MATLAB round()."""
+def round_half_away_from_zero(x: torch.Tensor) -> torch.Tensor:
+    """Round values to the nearest integer with ties directed away from zero."""
     return torch.sign(x) * torch.floor(torch.abs(x) + 0.5)
 
 
@@ -55,13 +57,27 @@ class Population:
     cons: torch.Tensor
 
     def __post_init__(self):
-        """Normalize population fields to colocated tensors."""
+        """Normalize fields and validate the population batch contract."""
         if not isinstance(self.decs, torch.Tensor):
             self.decs = to_tensor(self.decs)
         if not isinstance(self.objs, torch.Tensor):
             self.objs = to_tensor(self.objs, device=self.decs.device)
+        elif self.objs.device != self.decs.device:
+            self.objs = self.objs.to(self.decs.device)
         if not isinstance(self.cons, torch.Tensor):
             self.cons = to_tensor(self.cons, device=self.decs.device)
+        elif self.cons.device != self.decs.device:
+            self.cons = self.cons.to(self.decs.device)
+
+        fields = {"decs": self.decs, "objs": self.objs, "cons": self.cons}
+        for name, tensor in fields.items():
+            if tensor.ndim != 2:
+                raise ValueError(f"Population.{name} must be a two-dimensional tensor")
+        rows = self.decs.shape[0]
+        if self.objs.shape[0] != rows or self.cons.shape[0] != rows:
+            raise ValueError("Population fields must have the same number of rows")
+        if self.decs.shape[1] == 0 or self.objs.shape[1] == 0:
+            raise ValueError("Population decisions and objectives must contain at least one column")
 
     @property
     def feasible(self) -> torch.Tensor:
@@ -118,7 +134,7 @@ class Population:
         )
 
 
-class Problem:
+class Problem(ABC):
     """Base class for vectorized optimization problems.
 
     Subclasses normally implement :meth:`setting` and :meth:`cal_obj`; they
@@ -130,7 +146,22 @@ class Problem:
     name = "Problem"
 
     def __init__(self, n: int = 100, m: int | None = 2, d: int | None = 10, max_fe: int = 10000):
-        """Initialize the instance."""
+        """Initialize dimensions, evaluation budget, and CPU-resident state.
+
+        Args:
+            n: Requested population size.
+            m: Number of objectives. ``None`` lets :meth:`setting` choose it.
+            d: Number of decision variables. ``None`` lets :meth:`setting` choose it.
+            max_fe: Maximum number of objective-function evaluations.
+        """
+        if int(n) < 1:
+            raise ValueError("n must be at least one")
+        if m is not None and int(m) < 1:
+            raise ValueError("m must be at least one")
+        if d is not None and int(d) < 1:
+            raise ValueError("d must be at least one")
+        if int(max_fe) < 1:
+            raise ValueError("max_fe must be at least one")
         self.N = int(n)
         self.M = None if m is None else int(m)
         self.D = None if d is None else int(d)
@@ -186,7 +217,9 @@ class Problem:
             self._refresh_encoding_cache()
 
     def _refresh_encoding_cache(self) -> None:
-        """Compute refresh encoding cache."""
+        """Cache masks and counts for the five supported encoding types."""
+        if torch.any((self.encoding < 1) | (self.encoding > 5)):
+            raise ValueError("encoding values must be integers from 1 through 5")
         codes = self.encoding.detach().cpu().tolist()
         self.encoding_masks = tuple(self.encoding == code for code in range(1, 6))
         self.encoding_counts = tuple(codes.count(code) for code in range(1, 6))
@@ -195,9 +228,9 @@ class Problem:
         self.integer_like_mask = self.integer_or_label_mask | self.encoding_masks[3]
         self.has_encoded_variables = any(self.encoding_counts[2:])
 
+    @abstractmethod
     def setting(self) -> None:
         """Configure dimensions, bounds, encoding, and static problem data."""
-        pass
 
     def initialization(self, n: int | None = None) -> Population:
         """Sample and evaluate an initial population.
@@ -209,6 +242,8 @@ class Problem:
             The initialized and evaluated population.
         """
         n = self.N if n is None else int(n)
+        if n < 1:
+            raise ValueError("initial population size must be at least one")
         dec = torch.zeros((n, self.D), dtype=self.dtype, device=self.device)
         real = self.encoding_masks[0]
         integer_or_label = self.integer_or_label_mask
@@ -231,7 +266,7 @@ class Problem:
                 * (self.upper[integer_or_label] - self.lower[integer_or_label])
                 + self.lower[integer_or_label]
             )
-            dec[:, integer_or_label] = matlab_round(values)
+            dec[:, integer_or_label] = round_half_away_from_zero(values)
         if self.encoding_counts[3]:
             count = self.encoding_counts[3]
             dec[:, binary] = torch.randint(0, 2, (n, count), device=self.device).to(self.dtype)
@@ -263,8 +298,14 @@ class Problem:
         return self.evaluation(dec)
 
     def cal_obj(self, x: torch.Tensor) -> torch.Tensor:
-        """Compute objective values for a decision batch."""
-        return torch.zeros((x.shape[0], 1), dtype=x.dtype, device=x.device)
+        """Return an ``(N, M)`` objective tensor for an ``(N, D)`` batch.
+
+        A problem may instead override :meth:`evaluation` when objectives and
+        constraints must be computed together.
+        """
+        raise RuntimeError(
+            f"{type(self).__name__} must implement cal_obj() or override evaluation()"
+        )
 
     def cal_con(self, x: torch.Tensor) -> torch.Tensor:
         """Compute inequality constraints for a decision batch."""
@@ -324,7 +365,7 @@ class Problem:
         return self._feasible_obj
 
     def _empty_population(self) -> Population:
-        """Compute empty population."""
+        """Return an empty population with the configured column dimensions."""
         cdim = 1 if self._con_dim is None else int(self._con_dim)
         return Population(
             torch.empty((0, self.D), dtype=self.dtype, device=self.device),
@@ -333,13 +374,19 @@ class Problem:
         )
 
     def _prepare_dec(self, dec) -> torch.Tensor:
-        """Compute prepare dec."""
+        """Normalize, validate, bound, and repair a decision batch."""
         dec = to_tensor(dec, device=self.device, dtype=self.dtype)
         if dec.ndim == 1:
             dec = dec.unsqueeze(0)
+        if dec.ndim != 2 or dec.shape[1] != self.D:
+            raise ValueError(
+                f"decisions must have shape (N, D={self.D}), got {tuple(dec.shape)}"
+            )
         dec = torch.minimum(torch.maximum(dec, self.lower), self.upper)
         if any(self.encoding_counts[1:4]):
-            dec[:, self.integer_like_mask] = matlab_round(dec[:, self.integer_like_mask])
+            dec[:, self.integer_like_mask] = round_half_away_from_zero(
+                dec[:, self.integer_like_mask]
+            )
         repaired = to_tensor(
             self.cal_dec(dec),
             device=self.device,
@@ -355,19 +402,34 @@ class Problem:
         return repaired
 
     def _pack_population(self, dec: torch.Tensor, obj, con) -> Population:
-        """Compute pack population."""
+        """Validate evaluation outputs and assemble a population."""
         obj = to_tensor(obj, device=dec.device, dtype=dec.dtype)
         con = to_tensor(con, device=dec.device, dtype=dec.dtype)
         if obj.ndim == 1:
             obj = obj.unsqueeze(1)
         if con.ndim == 1:
             con = con.unsqueeze(1)
-        self._con_dim = con.shape[1]
+        if obj.ndim != 2 or obj.shape != (dec.shape[0], self.M):
+            raise ValueError(
+                "cal_obj must return shape "
+                f"(N={dec.shape[0]}, M={self.M}), got {tuple(obj.shape)}"
+            )
+        if con.ndim != 2 or con.shape[0] != dec.shape[0]:
+            raise ValueError(
+                "cal_con must return a two-dimensional tensor with "
+                f"N={dec.shape[0]} rows, got {tuple(con.shape)}"
+            )
+        if self._con_dim is not None and con.shape[1] != self._con_dim:
+            raise ValueError(
+                "cal_con must keep a stable constraint dimension across batches: "
+                f"expected {self._con_dim}, got {con.shape[1]}"
+            )
+        self._con_dim = int(con.shape[1])
         self.FE += dec.shape[0]
         return Population(dec, obj, con)
 
     def _bound_tensor(self, x, default_value: float) -> torch.Tensor:
-        """Compute bound tensor."""
+        """Expand a scalar bound or validate a per-variable bound vector."""
         x_t = to_tensor(x, device=self.device, dtype=self.dtype)
         if x_t.numel() == 0:
             return torch.full((self.D,), float(default_value), dtype=self.dtype, device=self.device)
@@ -379,7 +441,7 @@ class Problem:
         return x_t
 
 
-class Algorithm:
+class Algorithm(ABC):
     """Base class for evolutionary algorithms.
 
     Custom algorithms implement :meth:`_solve` and retain the evolutionary
@@ -391,7 +453,11 @@ class Algorithm:
     history_requires_snapshot = False
 
     def __init__(self, save: int = -10):
-        """Initialize the instance."""
+        """Initialize history storage.
+
+        The absolute value of ``save`` selects the maximum number of evenly
+        distributed history slots. Zero and one both retain the latest slot.
+        """
         self.save = int(save)
         self.result: list[tuple[int, Population]] = []
         self.metric_cache: dict[str, torch.Tensor] = {}
@@ -422,6 +488,18 @@ class Algorithm:
         Returns:
             This algorithm instance after execution.
         """
+        self._prepare_run(problem, device=device, cpu_threads=cpu_threads, seed=seed)
+        return self._run_prepared(problem, output, should_stop, should_pause)
+
+    def _prepare_run(
+        self,
+        problem: Problem,
+        *,
+        device: torch.device | str | None,
+        cpu_threads: int | None,
+        seed: int | None,
+    ) -> torch.device:
+        """Configure process-global execution state before a run."""
         selected_device = select_device(None if device is None else str(device))
         configure_torch(selected_device, cpu_threads=cpu_threads)
         if seed is not None:
@@ -430,12 +508,22 @@ class Algorithm:
         problem.FE = 0
         self.result = []
         self.metric_cache = {}
+        return selected_device
+
+    def _run_prepared(
+        self,
+        problem: Problem,
+        output: Callable[["Algorithm", Problem], None] | None,
+        should_stop: Callable[[], bool] | None,
+        should_pause: Callable[[], bool] | None,
+    ) -> "Algorithm":
+        """Execute a run after device, seed, and mutable state are prepared."""
         self._solve(problem, output, should_stop, should_pause)
         return self
 
+    @abstractmethod
     def _solve(self, problem: Problem, output, should_stop, should_pause) -> None:
         """Execute the vectorized evolutionary loop."""
-        raise NotImplementedError
 
     def not_terminated(
         self,
@@ -471,7 +559,9 @@ class Algorithm:
             return False
         if should_pause is not None:
             while should_pause():
-                pass
+                if should_stop is not None and should_stop():
+                    return False
+                time.sleep(0.05)
         return problem.FE < problem.max_fe
 
     @property
@@ -488,6 +578,8 @@ class Algorithm:
 
 def non_dominated_mask(obj: torch.Tensor) -> torch.Tensor:
     """Return a mask selecting nondominated rows of an objective tensor."""
+    if obj.ndim != 2 or obj.shape[1] == 0:
+        raise ValueError("obj must have shape (N, M) with M >= 1")
     if obj.shape[0] == 0:
         return torch.empty(0, dtype=torch.bool, device=obj.device)
     less_equal = obj[:, None, :] <= obj[None, :, :]

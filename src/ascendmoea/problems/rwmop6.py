@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from ..core import matlab_round
+from ..core import round_half_away_from_zero
 from .rwmop_base import RWMOPBase
 
 
@@ -28,7 +28,7 @@ class RWMOP6(RWMOPBase):
     def _values(x):
         """Compute values."""
         values = list(x.unbind(dim=1))
-        values[2] = matlab_round(values[2])
+        values[2] = round_half_away_from_zero(values[2])
         return values
 
     def cal_obj(self, x):

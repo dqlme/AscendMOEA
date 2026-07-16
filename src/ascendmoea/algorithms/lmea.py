@@ -13,7 +13,7 @@ from .sparse_common import convergence, subset_population
 
 
 class LMEA(Algorithm):
-    """Implement the LMEA multi-objective evolutionary algorithm."""
+    """Optimize large-scale problems through variable clustering and grouping."""
 
     name = "LMEA"
 
@@ -25,12 +25,24 @@ class LMEA(Algorithm):
         n_cor: int = 5,
         operator_type: int = 1,
     ):
-        """Initialize the instance."""
+        """Configure variable-analysis sampling and variation.
+
+        Args:
+            save: History retention policy inherited from :class:`Algorithm`.
+            n_sel: Population samples used to analyze each variable.
+            n_per: Perturbations generated per selected solution.
+            n_cor: Trials used in each pairwise correlation test.
+            operator_type: ``1`` selects GA and ``2`` selects DE.
+        """
         super().__init__(save=save)
         self.n_sel = int(n_sel)
         self.n_per = int(n_per)
         self.n_cor = int(n_cor)
         self.operator_type = int(operator_type)
+        if min(self.n_sel, self.n_per, self.n_cor) < 1:
+            raise ValueError("n_sel, n_per, and n_cor must be positive")
+        if self.operator_type not in {1, 2}:
+            raise ValueError("operator_type must be 1 (GA) or 2 (DE)")
 
     @staticmethod
     def _kmeans_two(points: torch.Tensor) -> torch.Tensor:
@@ -334,8 +346,11 @@ class LMEA(Algorithm):
         fmax = pop_obj.max(dim=0).values
         fmin = pop_obj.min(dim=0).values
         span = fmax - fmin
-        normalized = (pop_obj - fmin) / span
-        normalized = normalized / torch.linalg.vector_norm(normalized, dim=1, keepdim=True)
+        eps = torch.finfo(pop_obj.dtype).eps
+        normalized = (pop_obj - fmin) / span.clamp_min(eps)
+        normalized = normalized / torch.linalg.vector_norm(
+            normalized, dim=1, keepdim=True
+        ).clamp_min(eps)
         cosine = torch.clamp(normalized @ normalized.T, max=1)
         cosine.fill_diagonal_(0)
 

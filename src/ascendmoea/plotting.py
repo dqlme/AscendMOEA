@@ -9,14 +9,14 @@ from .core import to_tensor
 
 
 def _plot_tensor(x) -> torch.Tensor:
-    """Compute plot tensor."""
+    """Convert plotting input to a detached float64 CPU tensor."""
     if isinstance(x, torch.Tensor):
         return x.detach().cpu().to(torch.float64)
     return to_tensor(x, device=torch.device("cpu"), dtype=torch.float64)
 
 
 def _as_pf_grid(pf):
-    """Compute as pf grid."""
+    """Return a validated three-matrix Pareto-front grid or ``None``."""
     if not isinstance(pf, (tuple, list)) or len(pf) != 3:
         return None
     try:
@@ -33,7 +33,7 @@ def _as_pf_grid(pf):
 
 
 def _base_layout(fig: go.Figure, title: str = ""):
-    """Compute base layout."""
+    """Apply the shared publication-oriented figure layout."""
     fig.update_layout(
         title=title,
         template="plotly_white",
@@ -55,6 +55,8 @@ def _base_layout(fig: go.Figure, title: str = ""):
 def draw_obj(obj, pf=None, title: str = "Population (objectives)") -> go.Figure:
     """Draw a two- or three-objective population and optional reference front."""
     obj = _plot_tensor(obj)
+    if obj.ndim != 2 or obj.shape[1] not in {2, 3}:
+        raise ValueError("obj must have shape (N, 2) or (N, 3)")
     if obj.shape[1] == 2:
         fig = go.Figure()
         if pf is not None:
@@ -134,6 +136,8 @@ def draw_problem_obj(
     pop_obj = _plot_tensor(pop_obj)
     if pop_obj.ndim == 1 and pop_obj.numel() == 0:
         pop_obj = torch.empty((0, problem.M), dtype=torch.float64)
+    if pop_obj.ndim != 2 or pop_obj.shape[1] not in {2, 3}:
+        raise ValueError("pop_obj must have shape (N, 2) or (N, 3)")
     pf = problem.pf
     opt = problem.optimum
     if pop_obj.shape[1] == 2:
@@ -280,8 +284,59 @@ def update_population_trace(fig: go.Figure, pop_obj) -> go.Figure:
 def draw_dec(dec, title: str = "Population (variables)") -> go.Figure:
     """Draw decision vectors as points or parallel dimension traces."""
     dec = _plot_tensor(dec)
-    if dec.shape[1] <= 3:
-        return draw_obj(dec, None, title)
+    if dec.ndim != 2 or dec.shape[1] == 0:
+        raise ValueError("dec must have shape (N, D) with D >= 1")
+    if dec.shape[1] == 1:
+        fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=torch.arange(1, dec.shape[0] + 1).tolist(),
+                    y=dec[:, 0].tolist(),
+                    mode="markers",
+                    marker=dict(size=7, color="#b8b8b8", line=dict(color="#555", width=1)),
+                    name="Population",
+                )
+            ]
+        )
+        fig.update_xaxes(title_text="Solution index")
+        fig.update_yaxes(title_text="<i>x</i><sub>1</sub>")
+        return _base_layout(fig, title)
+    if dec.shape[1] == 2:
+        fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=dec[:, 0].tolist(),
+                    y=dec[:, 1].tolist(),
+                    mode="markers",
+                    marker=dict(size=7, color="#b8b8b8", line=dict(color="#555", width=1)),
+                    name="Population",
+                )
+            ]
+        )
+        fig.update_xaxes(title_text="<i>x</i><sub>1</sub>")
+        fig.update_yaxes(title_text="<i>x</i><sub>2</sub>")
+        return _base_layout(fig, title)
+    if dec.shape[1] == 3:
+        fig = go.Figure(
+            data=[
+                go.Scatter3d(
+                    x=dec[:, 0].tolist(),
+                    y=dec[:, 1].tolist(),
+                    z=dec[:, 2].tolist(),
+                    mode="markers",
+                    marker=dict(size=4, color="#b8b8b8", line=dict(color="#555", width=1)),
+                    name="Population",
+                )
+            ]
+        )
+        fig.update_layout(
+            scene=dict(
+                xaxis_title="<i>x</i><sub>1</sub>",
+                yaxis_title="<i>x</i><sub>2</sub>",
+                zaxis_title="<i>x</i><sub>3</sub>",
+            )
+        )
+        return _base_layout(fig, title)
     x = torch.arange(1, dec.shape[1] + 1, dtype=torch.float64)
     fig = go.Figure()
     for i in range(dec.shape[0]):
@@ -303,8 +358,10 @@ def draw_dec(dec, title: str = "Population (variables)") -> go.Figure:
 
 def draw_metric_curve(fes, values, name: str) -> go.Figure:
     """Draw an indicator value against cumulative function evaluations."""
-    fes = _plot_tensor(fes)
-    values = _plot_tensor(values)
+    fes = _plot_tensor(fes).reshape(-1)
+    values = _plot_tensor(values).reshape(-1)
+    if fes.numel() != values.numel():
+        raise ValueError("fes and values must contain the same number of elements")
     fig = go.Figure(
         data=[
             go.Scatter(

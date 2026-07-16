@@ -4,10 +4,10 @@ from .lsmop_base import LSMOP
 
 
 class LSMOP6(LSMOP):
-    """Implement the LSMOP6 vectorized optimization problem."""
+    """Define the LSMOP6 benchmark with batched tensor evaluation."""
 
     name = "LSMOP6"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(6, **kwargs)

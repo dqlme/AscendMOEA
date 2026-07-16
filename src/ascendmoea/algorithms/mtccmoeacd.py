@@ -108,7 +108,7 @@ def _make_offspring(problem: Problem, pop: Population, n: int) -> Population:
 
 
 class MTCCMOEACD(Algorithm):
-    """Implement the MTCCMOEACD multi-objective evolutionary algorithm."""
+    """Exchange solutions between constrained decomposition search tasks."""
 
     name = "MTCCMOEACD"
 
@@ -120,12 +120,25 @@ class MTCCMOEACD(Algorithm):
         feasible_gate: float = 0.2,
         **kwargs,
     ):
-        """Initialize the instance."""
+        """Configure archive selection and inter-task migration.
+
+        Args:
+            e1: Exploration archive mode: ``1`` distance, ``2`` crowding,
+                or ``3`` reference-vector association.
+            e2: Feasibility archive mode with the same values as ``e1``.
+            migrate_rate: Fraction of candidates exchanged at migration events.
+            feasible_gate: Feasible ratio required to enable directed migration.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.e1 = int(e1)
         self.e2 = int(e2)
         self.migrate_rate = float(migrate_rate)
         self.feasible_gate = float(feasible_gate)
+        if self.e1 not in {1, 2, 3} or self.e2 not in {1, 2, 3}:
+            raise ValueError("e1 and e2 must each be 1, 2, or 3")
+        if not 0 <= self.migrate_rate <= 1 or not 0 <= self.feasible_gate <= 1:
+            raise ValueError("migrate_rate and feasible_gate must be between zero and one")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause):
         """Execute the vectorized evolutionary loop."""

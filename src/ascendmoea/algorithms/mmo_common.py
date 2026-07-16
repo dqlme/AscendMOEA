@@ -54,13 +54,14 @@ def _kth_density(x: torch.Tensor, k: int) -> torch.Tensor:
 
 
 def _harmonic_crowding(dec: torch.Tensor) -> torch.Tensor:
-    """Compute harmonic crowding."""
+    """Compute harmonic-mean crowding in normalized decision space."""
     n = dec.shape[0]
     if n <= 1:
         return torch.full((n,), float("nan"), dtype=dec.dtype, device=dec.device)
     z_min = torch.min(dec, dim=0).values
     z_max = torch.max(dec, dim=0).values
-    norm = (dec - z_min) / (z_max - z_min)
+    span = (z_max - z_min).clamp_min(torch.finfo(dec.dtype).eps)
+    norm = (dec - z_min) / span
     dist = pairwise_dist(norm, norm)
     vals = torch.sort(dist, dim=1).values[:, 1:]
     return (n - 1) / torch.sum(1.0 / vals, dim=1)
@@ -77,7 +78,7 @@ def _sum_nearest_distance(x: torch.Tensor, k: int = 3) -> torch.Tensor:
 
 
 def _local_convergence(pop: Population) -> torch.Tensor:
-    """Compute local convergence."""
+    """Count locally dominating neighbors for every individual."""
     n, d = pop.decs.shape
     if n == 0:
         return torch.empty(0, dtype=pop.decs.dtype, device=pop.decs.device)
@@ -85,8 +86,11 @@ def _local_convergence(pop: Population) -> torch.Tensor:
     span = torch.max(pop.decs, dim=0).values - torch.min(pop.decs, dim=0).values
     v = 0.2 * torch.prod(span).pow(1.0 / max(d, 1))
     neighbor = dist < v
+    neighbor.fill_diagonal_(True)
     dominated_by = domination_matrix(pop.objs).T
-    return torch.sum(dominated_by & neighbor, dim=1).to(pop.decs.dtype) / torch.sum(neighbor, dim=1)
+    return torch.sum(dominated_by & neighbor, dim=1).to(pop.decs.dtype) / torch.sum(
+        neighbor, dim=1
+    ).clamp_min(1)
 
 
 def _lex_sort_indices(*columns: torch.Tensor, descending: bool = False) -> torch.Tensor:
@@ -319,7 +323,10 @@ def _commea_environmental2(pop: Population, n: int, operation: str, eps: float):
         while pop.decs.shape[0] > n:
             dobj = _sum_nearest_distance(pop.objs, k_near)
             ddec = _sum_nearest_distance(pop.decs, k_near)
-            crowd = dobj / torch.max(dobj) + ddec / torch.max(ddec)
+            tiny = torch.finfo(pop.decs.dtype).tiny
+            crowd = dobj / torch.max(dobj).clamp_min(tiny) + ddec / torch.max(
+                ddec
+            ).clamp_min(tiny)
             keep = torch.ones(pop.decs.shape[0], dtype=torch.bool, device=pop.decs.device)
             keep[torch.argmin(crowd)] = False
             pop = _subset(pop, torch.where(keep)[0])

@@ -19,7 +19,7 @@ from .sparse_common import (
 
 
 class SparseEA2(Algorithm):
-    """Implement the SparseEA2 multi-objective evolutionary algorithm."""
+    """Enhance sparse mask evolution with grouped decision-variable variation."""
 
     name = "SparseEA2"
     number_of_groups = 4

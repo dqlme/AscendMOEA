@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from .core import matlab_round
+from .core import round_half_away_from_zero
 
 
 class _RealProxy:
@@ -60,7 +60,7 @@ def _label_operator(
     else:
         lower = problem.lower[selected]
         upper = problem.upper[selected]
-        random_value = matlab_round(
+        random_value = round_half_away_from_zero(
             torch.rand_like(offspring) * (upper - lower).unsqueeze(0) + lower.unsqueeze(0)
         )
     offspring = torch.where(site, random_value, offspring)
@@ -156,6 +156,10 @@ def operator_ga_encoded(
     """
     from .utils import operator_ga
 
+    if parent_dec.ndim != 2 or parent_dec.shape[1] != problem.D:
+        raise ValueError(f"parent_dec must have shape (N, D={problem.D})")
+    if parent_dec.shape[0] < 2:
+        raise ValueError("operator_ga_encoded requires at least two parent rows")
     pair_count = parent_dec.shape[0] // 2
     parent1 = parent_dec[:pair_count]
     parent2 = parent_dec[pair_count : pair_count * 2]

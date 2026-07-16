@@ -10,7 +10,7 @@ from .spea_common import cal_fitness, environmental_selection
 
 
 class SPEA2(Algorithm):
-    """Implement the SPEA2 multi-objective evolutionary algorithm."""
+    """Combine strength fitness, density estimation, and distance truncation."""
 
     name = "SPEA2"
 

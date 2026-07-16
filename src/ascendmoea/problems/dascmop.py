@@ -144,10 +144,10 @@ def _estimate_x1_das36(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
 
 class DASCMOP(Problem):
-    """Implement the DASCMOP vectorized optimization problem."""
+    """Define the DASCMOP benchmark with batched tensor evaluation."""
 
     def __init__(self, idx: int, n=100, m=None, d=30, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.idx = int(idx)
         self.name = f"DASCMOP{self.idx}"
         super().__init__(n=n, m=2 if idx <= 6 else 3, d=d, max_fe=max_fe)

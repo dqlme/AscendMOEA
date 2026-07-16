@@ -10,13 +10,13 @@ import torch
 
 
 def _vendor_root() -> Path:
-    """Compute vendor root."""
+    """Return the directory containing packaged real-world data."""
     return Path(__file__).resolve().parents[1] / "vendor" / "real_world_data"
 
 
 @lru_cache(maxsize=None)
 def load_mat(filename: str) -> dict:
-    """Load and cache a packaged MATLAB data file by filename."""
+    """Load and cache a packaged MAT data file by filename."""
     import scipy.io
 
     return scipy.io.loadmat(_vendor_root() / filename, simplify_cells=True)
@@ -32,7 +32,7 @@ def field(value, name: str):
 
 
 def cell_matrices(value) -> list[np.ndarray]:
-    """Normalize MATLAB cell or stacked data into a list of matrices."""
+    """Normalize object-cell or stacked data into a list of matrices."""
     array = np.asarray(value)
     if array.dtype == object:
         return [np.asarray(item, dtype=float) for item in array.reshape(-1)]
@@ -47,7 +47,7 @@ def tensor(array, like: torch.Tensor) -> torch.Tensor:
 
 
 def repair_permutation(x: torch.Tensor) -> torch.Tensor:
-    """Repair permutation."""
+    """Replace invalid rows with stable rank-based permutations."""
     expected = torch.arange(1, x.shape[1] + 1, dtype=x.dtype, device=x.device)
     sorted_values, rank = torch.sort(x, dim=1, stable=True)
     invalid = torch.any(sorted_values != expected.unsqueeze(0), dim=1)

@@ -11,7 +11,7 @@ from ..utils import operator_ga, pairwise_dist, uniform_point
 
 
 class CMOEAD(Algorithm):
-    """Implement the CMOEAD multi-objective evolutionary algorithm."""
+    """Apply decomposition and constraint violation to neighborhood replacement."""
 
     name = "CMOEAD"
     history_requires_snapshot = True
@@ -50,19 +50,25 @@ class CMOEAD(Algorithm):
                 difference = population.objs[selected] - ideal
                 offspring_difference = offspring.objs[0] - ideal
                 selected_weights = weights[selected]
-                weight_norm = torch.linalg.vector_norm(selected_weights, dim=1)
-                old_norm = torch.linalg.vector_norm(difference, dim=1)
-                new_norm = torch.linalg.vector_norm(offspring_difference)
-                old_cosine = (
-                    torch.sum(difference * selected_weights, dim=1) / weight_norm / old_norm
+                weight_norm = torch.linalg.vector_norm(selected_weights, dim=1).clamp_min(
+                    torch.finfo(problem.dtype).tiny
                 )
-                new_cosine = (
-                    torch.sum(offspring_difference.unsqueeze(0) * selected_weights, dim=1)
-                    / weight_norm
-                    / new_norm
+                old_projection = torch.sum(difference * selected_weights, dim=1) / weight_norm
+                new_projection = torch.sum(
+                    offspring_difference.unsqueeze(0) * selected_weights, dim=1
+                ) / weight_norm
+                old_perpendicular = torch.sqrt(
+                    torch.clamp(
+                        torch.sum(difference.square(), dim=1) - old_projection.square(), min=0
+                    )
                 )
-                old_value = old_norm * old_cosine + 5 * old_norm * torch.sqrt(1 - old_cosine**2)
-                new_value = new_norm * new_cosine + 5 * new_norm * torch.sqrt(1 - new_cosine**2)
+                new_perpendicular = torch.sqrt(
+                    torch.clamp(
+                        torch.sum(offspring_difference.square()) - new_projection.square(), min=0
+                    )
+                )
+                old_value = old_projection + 5 * old_perpendicular
+                new_value = new_projection + 5 * new_perpendicular
                 replace_mask = ((old_value >= new_value) & (selected_cv == offspring_cv)) | (
                     selected_cv > offspring_cv
                 )

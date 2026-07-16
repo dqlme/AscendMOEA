@@ -6,10 +6,10 @@ from .mmo_base import MMOProblem
 
 
 class Poly2(MMOProblem):
-    """Implement the Poly2 vectorized optimization problem."""
+    """Define the Poly2 benchmark with batched tensor evaluation."""
 
     name = "poly_2"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(63, **kwargs)

@@ -12,14 +12,21 @@ from .mmo_common import _commea_environmental1, _commea_environmental2, _commea_
 
 
 class CoMMEA(Algorithm):
-    """Implement the CoMMEA multi-objective evolutionary algorithm."""
+    """Cooperate between convergence and local decision-space niches."""
 
     name = "CoMMEA"
 
     def __init__(self, eps: float = 0.2, **kwargs):
-        """Initialize the instance."""
+        """Configure the minimum local-convergence neighborhood radius.
+
+        Args:
+            eps: Lower bound of the adaptive decision-space radius.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.eps = float(eps)
+        if self.eps <= 0:
+            raise ValueError("eps must be positive")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause) -> None:
         """Execute the vectorized evolutionary loop."""

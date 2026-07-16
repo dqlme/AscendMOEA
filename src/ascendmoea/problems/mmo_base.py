@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import importlib
-import importlib.util
 import os
-import sys
+import threading
 from functools import lru_cache
 from typing import Callable
 
@@ -13,6 +12,7 @@ import torch
 
 from ..core import Problem
 from ..utils import pairwise_dist
+from ..vendor.mmo_reference.functions.Basic.load_functions import load_functions
 
 MMO_ID_TO_NAME = {
     1: "MMF1",
@@ -93,20 +93,8 @@ MMO_NAME_TO_ID = {v: k for k, v in MMO_ID_TO_NAME.items()}
 MMO_PROBLEM_NAMES = list(MMO_NAME_TO_ID)
 
 
-def _vendor_root() -> str:
-    """Compute vendor root."""
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "vendor", "mmo_reference"))
-
-
-def _ensure_vendor_path() -> None:
-    """Compute ensure vendor path."""
-    root = _vendor_root()
-    if root not in sys.path:
-        sys.path.insert(0, root)
-
-
 def _real_world_data_dir() -> str:
-    """Compute real world data dir."""
+    """Return the packaged multimodal real-world data directory."""
     return os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "vendor", "multimodal_real_world")
     )
@@ -114,25 +102,20 @@ def _real_world_data_dir() -> str:
 
 @lru_cache(maxsize=None)
 def _load_mmo_spec(problem_id: int):
-    """Compute load mmo spec."""
-    _ensure_vendor_path()
-    path = os.path.join(_vendor_root(), "functions", "Basic", "load_functions.py")
-    spec = importlib.util.spec_from_file_location("_ascendmoea_mmo_load_functions", path)
-    loader = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    previous_dtype = torch.get_default_dtype()
-    try:
-        # Avoid permanently quantizing CPU bounds/reference points to fp32.
-        torch.set_default_dtype(torch.float64)
-        spec.loader.exec_module(loader)
-        return loader.load_functions(problem_id)
-    finally:
-        torch.set_default_dtype(previous_dtype)
+    """Load one immutable multimodal problem specification."""
+    with _FORMULA_EVALUATION_LOCK:
+        previous_dtype = torch.get_default_dtype()
+        try:
+            # Avoid permanently quantizing CPU bounds/reference points to fp32.
+            torch.set_default_dtype(torch.float64)
+            return load_functions(problem_id)
+        finally:
+            torch.set_default_dtype(previous_dtype)
 
 
 @lru_cache(maxsize=None)
 def _load_app_mat(filename: str):
-    """Compute load app mat."""
+    """Load one packaged multimodal real-world MAT file."""
     import scipy.io
 
     path = os.path.join(_real_world_data_dir(), filename)
@@ -143,7 +126,7 @@ class _TorchFactoryProxy:
     """Inject the current tensor's device and dtype into reference formulas."""
 
     def __init__(self, like: torch.Tensor):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.like = like
 
     def __getattr__(self, name):
@@ -151,54 +134,58 @@ class _TorchFactoryProxy:
         return getattr(torch, name)
 
     def _kwargs(self, kwargs):
-        """Compute kwargs."""
+        """Fill omitted factory device and dtype from the evaluated batch."""
         kwargs = dict(kwargs)
         kwargs.setdefault("device", self.like.device)
         kwargs.setdefault("dtype", self.like.dtype)
         return kwargs
 
     def tensor(self, data, *args, **kwargs):
-        """Compute tensor."""
+        """Create a tensor colocated with the evaluated batch."""
         return torch.tensor(data, *args, **self._kwargs(kwargs))
 
     def zeros(self, *args, **kwargs):
-        """Compute zeros."""
+        """Create a zero tensor colocated with the evaluated batch."""
         return torch.zeros(*args, **self._kwargs(kwargs))
 
     def ones(self, *args, **kwargs):
-        """Compute ones."""
+        """Create a one tensor colocated with the evaluated batch."""
         return torch.ones(*args, **self._kwargs(kwargs))
 
     def empty(self, *args, **kwargs):
-        """Compute empty."""
+        """Create an uninitialized tensor colocated with the evaluated batch."""
         return torch.empty(*args, **self._kwargs(kwargs))
 
     def full(self, *args, **kwargs):
-        """Compute full."""
+        """Create a filled tensor colocated with the evaluated batch."""
         return torch.full(*args, **self._kwargs(kwargs))
 
     def arange(self, *args, **kwargs):
-        """Compute arange."""
+        """Create an integer range on the evaluated batch device."""
         kwargs = dict(kwargs)
         kwargs.setdefault("device", self.like.device)
         return torch.arange(*args, **kwargs)
 
     def linspace(self, *args, **kwargs):
-        """Compute linspace."""
+        """Create an evenly spaced tensor colocated with the evaluated batch."""
         return torch.linspace(*args, **self._kwargs(kwargs))
+
+
+_FORMULA_EVALUATION_LOCK = threading.RLock()
 
 
 def _call_with_torch_proxy(
     fn: Callable[[torch.Tensor], torch.Tensor], x: torch.Tensor
 ) -> torch.Tensor:
-    """Compute call with torch proxy."""
+    """Evaluate a legacy formula with batch-aware tensor factories."""
     module = importlib.import_module(fn.__module__)
-    original_torch = getattr(module, "torch", torch)
-    module.torch = _TorchFactoryProxy(x)
-    try:
-        y = fn(x)
-    finally:
-        module.torch = original_torch
+    with _FORMULA_EVALUATION_LOCK:
+        original_torch = getattr(module, "torch", torch)
+        module.torch = _TorchFactoryProxy(x)
+        try:
+            y = fn(x)
+        finally:
+            module.torch = original_torch
     return torch.as_tensor(y, dtype=x.dtype, device=x.device)
 
 
@@ -242,10 +229,10 @@ def _ueclp(x: torch.Tensor) -> torch.Tensor:
 
 
 class MMOProblem(Problem):
-    """Implement the MMOProblem vectorized optimization problem."""
+    """Define the MMOProblem benchmark with batched tensor evaluation."""
 
     def __init__(self, problem_id: int | str, n=100, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         if isinstance(problem_id, str):
             problem_id = MMO_NAME_TO_ID[problem_id]
         self.problem_id = int(problem_id)
@@ -312,14 +299,13 @@ class MMOProblem(Problem):
     def get_optimum(self, n: int = 1000):
         """Generate objective-space reference points for metrics."""
         if self._pf_data is not None:
-            # IKMMO indicators use the complete fixed reference set.  Some
-            # files group different fronts by row, so a prefix is biased.
+            # Keep the complete fixed set because rows may group distinct fronts.
             return self._pf_data
         return super().get_optimum(n)
 
     @property
     def reference_point(self):
-        """Compute reference point."""
+        """Return the recommended objective-space reference point, if defined."""
         return self._refpoint
 
     def get_pf(self):
@@ -328,15 +314,15 @@ class MMOProblem(Problem):
 
     @property
     def ps(self):
-        """Compute ps."""
+        """Return the packaged decision-space Pareto set, if available."""
         return self._ps
 
 
 class MMOProblemFactory:
-    """Implement the MMOProblemFactory vectorized optimization problem."""
+    """Construct one registered multimodal problem from its stable identifier."""
 
     def __init__(self, problem_id: int):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.problem_id = int(problem_id)
         if problem_id in MMO_ID_TO_NAME:
             self.name = MMO_ID_TO_NAME[problem_id]
@@ -344,7 +330,7 @@ class MMOProblemFactory:
             self.name = {73: "RLP", 74: "UECLP"}[problem_id]
 
     def __call__(self, **kwargs):
-        """Compute call."""
+        """Create the configured multimodal problem."""
         return MMOProblem(self.problem_id, **kwargs)
 
 

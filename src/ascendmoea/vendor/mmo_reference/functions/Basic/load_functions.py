@@ -1,11 +1,21 @@
 """Implementation utilities for load_functions."""
 
-import importlib
 import os
 
 import numpy as np
 import scipy
 import torch
+
+from ..TestFunctions import APP, CEC2019, IDMP, MMMOP, IDMP_e, Poly
+
+_TEST_SUITES = {
+    "APP": APP,
+    "CEC2019": CEC2019,
+    "IDMP": IDMP,
+    "IDMP_e": IDMP_e,
+    "MMMOP": MMMOP,
+    "Poly": Poly,
+}
 
 
 def load_functions(function_num):
@@ -807,8 +817,7 @@ def load_functions(function_num):
         load_PF = None
         load_PS = None
 
-    function_import_path = "".join(["functions.TestFunctions.", mat_folder])
-    test_suit = importlib.import_module(function_import_path)
+    test_suit = _TEST_SUITES[mat_folder]
     function = getattr(test_suit, function_name)
 
     if function_num != 72:

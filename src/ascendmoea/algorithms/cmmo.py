@@ -16,16 +16,25 @@ from .mmo_common import (
 
 
 class CMMO(Algorithm):
-    """Implement the CMMO multi-objective evolutionary algorithm."""
+    """Co-evolve convergence and decision-diversity populations."""
 
     name = "CMMO"
 
     def __init__(self, eta: float = 0.2, tao: float = 0.1, theta: float = 0.1, **kwargs):
-        """Initialize the instance."""
+        """Configure the adaptive epsilon schedule and diversity threshold.
+
+        Args:
+            eta: Fraction of generations before epsilon relaxation begins.
+            tao: Per-generation epsilon decay rate.
+            theta: Decision-space neighborhood threshold.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.eta = float(eta)
         self.tao = float(tao)
         self.theta = float(theta)
+        if not all(0 <= value <= 1 for value in (self.eta, self.tao, self.theta)):
+            raise ValueError("eta, tao, and theta must be between zero and one")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause) -> None:
         """Execute the vectorized evolutionary loop."""

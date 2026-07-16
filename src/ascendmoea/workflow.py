@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import torch
 
 from .core import Algorithm, Population, Problem
-from .device import configure_torch, seed_everything, select_device, synchronize
+from .device import select_device, synchronize
 
 
 @dataclass(frozen=True)
@@ -63,12 +63,15 @@ class Monitor:
 
     def on_start(self, algorithm: Algorithm, problem: Problem) -> None:
         """Handle workflow initialization before timed execution."""
+        return None
 
     def on_generation(self, algorithm: Algorithm, problem: Problem) -> None:
         """Handle a newly recorded generation."""
+        return None
 
     def on_finish(self, result: OptimizationResult) -> None:
         """Handle successful workflow completion."""
+        return None
 
     def on_error(
         self,
@@ -77,6 +80,7 @@ class Monitor:
         error: BaseException,
     ) -> None:
         """Handle an exception before it is propagated to the caller."""
+        return None
 
 
 class HistoryMonitor(Monitor):
@@ -120,7 +124,7 @@ class Workflow:
         monitors: Monitor | Sequence[Monitor] | None = None,
         config: RunConfig | None = None,
     ) -> None:
-        """Initialize the instance."""
+        """Create a reusable workflow from one algorithm/problem pair."""
         self.algorithm = algorithm
         self.problem = problem
         if monitors is None:
@@ -143,10 +147,12 @@ class Workflow:
         and includes all work submitted by the algorithm.
         """
         device = select_device(None if self.config.device is None else str(self.config.device))
-        configure_torch(device, cpu_threads=self.config.cpu_threads)
-        if self.config.seed is not None:
-            seed_everything(self.config.seed, device)
-        self.problem.device = device
+        self.algorithm._prepare_run(
+            self.problem,
+            device=device,
+            cpu_threads=self.config.cpu_threads,
+            seed=self.config.seed,
+        )
 
         for monitor in self.monitors:
             monitor.on_start(self.algorithm, self.problem)
@@ -162,14 +168,11 @@ class Workflow:
             synchronize(device)
         started = time.perf_counter()
         try:
-            self.algorithm.solve(
+            self.algorithm._run_prepared(
                 self.problem,
-                output=generation_callback,
-                should_stop=should_stop,
-                should_pause=should_pause,
-                device=device,
-                cpu_threads=self.config.cpu_threads,
-                seed=self.config.seed,
+                generation_callback,
+                should_stop,
+                should_pause,
             )
             if self.config.synchronize_timing:
                 synchronize(device)

@@ -1,21 +1,30 @@
 # AscendMOEA
 
-AscendMOEA 是面向华为昇腾 NPU 与通用 CPU 的张量化多目标进化优化库。项目以
-PyTorch 张量为统一数据模型，提供算法、问题、种群、算子、质量指标、运行工作流和
-监控接口，可直接运行内置任务，也可扩展用户算法与批量问题。
+AscendMOEA 是面向华为昇腾 NPU 与通用 CPU 的张量化多目标进化优化库。统一的 PyTorch
+数据模型覆盖种群、算法、问题、进化算子、质量指标、同步计时和运行监控；同一套扩展接口
+可用于无约束、约束、多模态和稀疏大规模优化。
 
-当前发布版包含 20 个算法、155 个测试或实际问题，以及非支配排序、拥挤距离、锦标赛
-选择、轮盘赌、遗传变异、差分进化、参考向量采样和种群合并等公开算子。
+版本 `0.1.0` 提供 20 个算法、155 个基准或实际问题、19 个公开种群算子和 11 个质量
+指标。问题评价与主要种群操作面向完整批次，张量始终保留设备和精度信息。
 
 ## 安装
 
-CPU 环境：
+要求 Python 3.9 及以上版本。CPU 环境在项目根目录执行：
 
 ```bash
 python -m pip install .
 ```
 
-昇腾环境需要先安装与设备驱动匹配的 CANN、PyTorch 和 `torch_npu`，再安装本项目：
+实验、绘图和开发依赖按需安装：
+
+```bash
+python -m pip install ".[experiment]"
+python -m pip install ".[plot]"
+python -m pip install -e ".[dev,all]"
+```
+
+昇腾环境需要预先安装互相兼容的驱动、CANN、PyTorch 和 `torch_npu`。加载 CANN 环境
+后，使用 `--no-deps` 可避免替换已适配的 PyTorch：
 
 ```bash
 source /usr/local/Ascend/nnrt/set_env.sh
@@ -23,54 +32,65 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 python -m pip install . --no-deps
 ```
 
-开发模式：
-
-```bash
-python -m pip install -e ".[dev,all]"
-```
-
-## 首次运行
+## 快速开始
 
 ```python
 from ascendmoea import optimize
 from ascendmoea.algorithms import NSGAII
+from ascendmoea.metrics import hv, igd
 from ascendmoea.problems import DTLZ2
 
+problem = DTLZ2(n=100, m=3, max_fe=10_000)
 result = optimize(
     NSGAII(save=20),
-    DTLZ2(n=100, m=3, max_fe=10_000),
+    problem,
     device="cpu",
     cpu_threads=8,
-    seed=20260716,
+    seed=42,
 )
 
-print(result.population.objs)
-print(result.elapsed_seconds)
+print("evaluations", result.evaluations)
+print("seconds", result.elapsed_seconds)
+print("HV", hv(result.population, problem.optimum))
+print("IGD", igd(result.population, problem.optimum))
 ```
 
-NPU 运行只需把 `device` 改为 `"npu:0"`。工作流会在计时起止点同步异步设备队列，
-因此 `elapsed_seconds` 包含本次算法提交的完整计算。
+在已配置的昇腾环境中，将 `device="cpu"` 改为 `device="npu:0"`。标准工作流会在计时
+前后同步设备队列，`elapsed_seconds` 因而覆盖本次运行提交的完整计算。
 
-## 公开入口
+## 公开模块
 
-- `ascendmoea.algorithms`：算法类、算法注册和工厂函数。
-- `ascendmoea.problems`：问题类、问题注册和工厂函数。
-- `ascendmoea.operators`：可独立调用的张量化种群算子。
-- `ascendmoea.metrics`：HV、IGD、IGD+、IGDX、GD 等指标。
-- `ascendmoea.Workflow`：设备配置、同步计时和监控器组合。
-- `ascendmoea.Problem`、`ascendmoea.Algorithm`：扩展基类。
+- `ascendmoea`：`Population`、`Problem`、`Algorithm`、`Workflow`、监控器和设备接口。
+- `ascendmoea.algorithms`：算法类、算法注册表和名称工厂。
+- `ascendmoea.problems`：问题类、问题注册表和名称工厂。
+- `ascendmoea.operators`：排序、选择、距离、交叉、变异、采样和种群组合。
+- `ascendmoea.metrics`：HV、IGD、IGD+、GD、IGDX、PSP 等指标。
+- `ascendmoea.experiment`：可复现重复实验、汇总和非参数统计。
+- `ascendmoea.plotting`：目标空间、决策空间和指标曲线。
 
-## 文档与示例
+完整接口从 [API 索引](docs/17_API速查.md) 进入。首次使用建议依次阅读
+[安装与昇腾环境](docs/02_安装与昇腾环境.md)、
+[第一个优化任务](docs/03_第一个优化任务.md) 和
+[完整案例集](docs/16_完整案例集.md)。全部文档入口见
+[中文文档阅读路线](docs/00_阅读路线.md)。
 
-中文文档从 [`docs/00_阅读路线.md`](docs/00_阅读路线.md) 开始。可执行示例位于
-[`examples`](examples)，发布前完整验证入口为
-[`tools/validate_release.py`](tools/validate_release.py)。
+## 验证
 
-当前版本的环境、测试范围和设备验证见
-[`docs/18_发行验证记录.md`](docs/18_发行验证记录.md)。
+```bash
+python -m ruff check src tests examples tools
+python -m pytest
+python tools/check_release.py
+python tools/validate_release.py --device cpu --cpu-threads 1 \
+  --output validation-results/cpu.json
+```
 
-## 发布状态
+NPU 环境把验证设备改为 `npu:0`。当前发行构建的环境、检查范围和结果记录在
+[发行验证记录](docs/18_发行验证记录.md)。
 
-当前版本为 `0.1.0`。安装包中的实际问题数据随
-`ascendmoea/vendor` 一并分发。使用、修改或重新发布前请阅读 `LICENSE` 与
-`NOTICE.md`。
+GitHub CI 在 Python 3.9 和 3.12 上重复执行发布卫生、单元测试、CPU 目录验证和构建；
+NPU 门禁必须在具有匹配驱动、CANN、PyTorch 与设备后端的昇腾环境中执行。
+
+## 许可
+
+本项目按 `LICENSE` 中的非商业研究与教育条款发布。算法、基准和数据的必要归属及第三方
+条件见 `NOTICE.md`；使用或重新分发前应同时阅读两份文件。

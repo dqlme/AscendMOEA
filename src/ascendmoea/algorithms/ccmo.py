@@ -10,14 +10,21 @@ from .spea_common import cal_fitness, environmental_selection
 
 
 class CCMO(Algorithm):
-    """Implement the CCMO multi-objective evolutionary algorithm."""
+    """Co-evolve constrained and unconstrained auxiliary populations."""
 
     name = "CCMO"
 
     def __init__(self, op_type: int = 1, **kwargs):
-        """Initialize the instance."""
+        """Configure the variation operator.
+
+        Args:
+            op_type: ``1`` selects GA and ``2`` selects DE.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.op_type = int(op_type)
+        if self.op_type not in {1, 2}:
+            raise ValueError("op_type must be 1 (GA) or 2 (DE)")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause) -> None:
         """Execute the vectorized evolutionary loop."""

@@ -43,7 +43,7 @@ def _train_rbm_batch1(
                 torch.outer(batch, positive_prob)
                 - torch.outer(negative_data_prob, negative_hidden_prob)
             )
-            # BatchSize=1 makes MATLAB sum() scalar for both bias updates.
+            # A batch of one uses scalar aggregate updates for both biases.
             visible_increment = momentum * visible_increment + learn_rate * (
                 batch.sum() - negative_data.to(x.dtype).sum()
             )
@@ -172,7 +172,7 @@ class _DAE:
 
 
 class MOEAPSL(Algorithm):
-    """Implement the MOEAPSL multi-objective evolutionary algorithm."""
+    """Learn sparse Pareto-set structure with generative latent models."""
 
     name = "MOEA-PSL"
 
@@ -275,7 +275,8 @@ class MOEAPSL(Algorithm):
         learned_masks: list[torch.Tensor] = []
         learned_decisions: list[torch.Tensor] = []
         if torch.any(learned_site):
-            assert rbm is not None and all_zero is not None and all_one is not None
+            if rbm is None or all_zero is None or all_one is None:
+                raise RuntimeError("learned mask generation requires a fitted RBM state")
             other = ~all_zero & ~all_one
             hidden1 = rbm.reduce(p1_mask[learned_site][:, other])
             hidden2 = rbm.reduce(p2_mask[learned_site][:, other])
@@ -289,7 +290,8 @@ class MOEAPSL(Algorithm):
             learned_mask[:, all_one] = True
             learned_masks.append(learned_mask)
             if torch.any(problem.encoding != 4):
-                assert dae is not None
+                if dae is None:
+                    raise RuntimeError("learned real decisions require a fitted DAE state")
                 hidden_dec1 = dae.reduce(p1_dec[learned_site])
                 hidden_dec2 = dae.reduce(p2_dec[learned_site])
                 learned_decisions.append(dae.recover(cls._real_crossover(hidden_dec1, hidden_dec2)))

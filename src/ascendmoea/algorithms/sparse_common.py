@@ -12,7 +12,7 @@ from ..utils import crowding_distance, merge_pop, nd_sort, tournament_selection
 
 @dataclass
 class SparsePopulation:
-    """Implement the SparsePopulation multi-objective evolutionary algorithm."""
+    """Bundle a sparse population with its latent decisions and masks."""
 
     population: Population
     dec: torch.Tensor
@@ -22,7 +22,7 @@ class SparsePopulation:
 
 
 def subset_population(population: Population, index: torch.Tensor) -> Population:
-    """Compute subset population."""
+    """Select population rows by index or Boolean mask."""
     return Population(
         population.decs[index],
         population.objs[index],
@@ -31,7 +31,7 @@ def subset_population(population: Population, index: torch.Tensor) -> Population
 
 
 def lexicographic_order(rows: torch.Tensor) -> torch.Tensor:
-    """Compute lexicographic order."""
+    """Return a stable lexicographic row ordering."""
     order = torch.arange(rows.shape[0], device=rows.device)
     for column in range(rows.shape[1] - 1, -1, -1):
         local = torch.argsort(rows[order, column], stable=True)
@@ -40,7 +40,7 @@ def lexicographic_order(rows: torch.Tensor) -> torch.Tensor:
 
 
 def unique_row_indices(rows: torch.Tensor) -> torch.Tensor:
-    """Return MATLAB unique(A,'rows') style sorted first-occurrence indices."""
+    """Return first-occurrence indices ordered by unique row value."""
     if rows.shape[0] <= 1:
         return torch.arange(rows.shape[0], device=rows.device)
     order = lexicographic_order(rows)

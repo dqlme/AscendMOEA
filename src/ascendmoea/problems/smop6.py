@@ -4,10 +4,10 @@ from .smop_base import SMOP
 
 
 class SMOP6(SMOP):
-    """Implement the SMOP6 vectorized optimization problem."""
+    """Define the SMOP6 benchmark with batched tensor evaluation."""
 
     name = "SMOP6"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(6, **kwargs)

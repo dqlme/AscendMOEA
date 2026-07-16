@@ -11,15 +11,23 @@ from ..utils import operator_ga, pairwise_dist, uniform_point
 
 
 class MOEAD(Algorithm):
-    """Implement the MOEAD multi-objective evolutionary algorithm."""
+    """Optimize scalar subproblems over neighborhoods of reference weights."""
 
     name = "MOEAD"
     history_requires_snapshot = True
 
     def __init__(self, agg_type: int = 1, **kwargs):
-        """Initialize the instance."""
+        """Select the scalar aggregation function.
+
+        Args:
+            agg_type: ``1`` PBI, ``2`` weighted Tchebycheff, ``3`` normalized
+                Tchebycheff, or ``4`` modified Tchebycheff.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.agg_type = int(agg_type)
+        if self.agg_type not in {1, 2, 3, 4}:
+            raise ValueError("agg_type must be 1, 2, 3, or 4")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause) -> None:
         """Execute the vectorized evolutionary loop."""
@@ -47,19 +55,28 @@ class MOEAD(Algorithm):
                 new_difference = offspring.objs[0] - ideal
                 selected_weights = weights[selected_neighbours]
                 if self.agg_type == 1:
-                    weight_norm = torch.linalg.vector_norm(selected_weights, dim=1)
-                    old_norm = torch.linalg.vector_norm(old_difference, dim=1)
-                    new_norm = torch.linalg.vector_norm(new_difference)
-                    old_cosine = (
-                        torch.sum(old_difference * selected_weights, dim=1) / weight_norm / old_norm
+                    weight_norm = torch.linalg.vector_norm(selected_weights, dim=1).clamp_min(
+                        torch.finfo(problem.dtype).tiny
                     )
-                    new_cosine = (
-                        torch.sum(new_difference.unsqueeze(0) * selected_weights, dim=1)
-                        / weight_norm
-                        / new_norm
+                    old_projection = torch.sum(
+                        old_difference * selected_weights, dim=1
+                    ) / weight_norm
+                    new_projection = torch.sum(
+                        new_difference.unsqueeze(0) * selected_weights, dim=1
+                    ) / weight_norm
+                    old_perpendicular = torch.sqrt(
+                        torch.clamp(
+                            torch.sum(old_difference.square(), dim=1) - old_projection.square(),
+                            min=0,
+                        )
                     )
-                    old_value = old_norm * old_cosine + 5 * old_norm * torch.sqrt(1 - old_cosine**2)
-                    new_value = new_norm * new_cosine + 5 * new_norm * torch.sqrt(1 - new_cosine**2)
+                    new_perpendicular = torch.sqrt(
+                        torch.clamp(
+                            torch.sum(new_difference.square()) - new_projection.square(), min=0
+                        )
+                    )
+                    old_value = old_projection + 5 * old_perpendicular
+                    new_value = new_projection + 5 * new_perpendicular
                 elif self.agg_type == 2:
                     old_value = torch.max(
                         torch.abs(old_difference) * selected_weights, dim=1
@@ -70,7 +87,7 @@ class MOEAD(Algorithm):
                     ).values
                 elif self.agg_type == 3:
                     nadir = population.objs.max(dim=0).values
-                    scale = nadir - ideal
+                    scale = (nadir - ideal).clamp_min(torch.finfo(problem.dtype).eps)
                     old_value = torch.max(
                         torch.abs(old_difference) / scale * selected_weights, dim=1
                     ).values

@@ -22,9 +22,10 @@ def _constraint_violation(population: Population) -> torch.Tensor:
 
 
 def _cosine_similarity(points: torch.Tensor) -> torch.Tensor:
-    """Compute cosine similarity."""
-    points = points / torch.linalg.vector_norm(points, dim=1, keepdim=True)
-    cosine = torch.clamp(points @ points.T, max=1)
+    """Return self-cosine similarities without zero-vector failures."""
+    norm = torch.linalg.vector_norm(points, dim=1, keepdim=True)
+    points = points / norm.clamp_min(torch.finfo(points.dtype).tiny)
+    cosine = torch.clamp(points @ points.T, min=-1, max=1)
     return cosine * (1 - torch.eye(points.shape[0], dtype=points.dtype, device=points.device))
 
 
@@ -35,7 +36,7 @@ def _distance_truncation(pop_obj: torch.Tensor, delete_count: int) -> torch.Tens
 
 
 class BiCo(Algorithm):
-    """Implement the BiCo multi-objective evolutionary algorithm."""
+    """Co-evolve complementary populations for constrained optimization."""
 
     name = "BiCo"
 

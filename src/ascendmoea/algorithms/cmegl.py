@@ -49,7 +49,7 @@ def _local_environmental_selection(
 
 
 class CMEGL(Algorithm):
-    """Implement the CMEGL multi-objective evolutionary algorithm."""
+    """Coordinate constrained, global, and local search populations."""
 
     name = "CMEGL"
 

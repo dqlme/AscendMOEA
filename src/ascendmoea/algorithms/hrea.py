@@ -10,15 +10,23 @@ from .mmo_common import _hrea_archive_update, _hrea_environmental
 
 
 class HREA(Algorithm):
-    """Implement the HREA multi-objective evolutionary algorithm."""
+    """Maintain hierarchical objective- and decision-space diversity archives."""
 
     name = "HREA"
 
     def __init__(self, eps: float = 0.3, p: float = 0.5, **kwargs):
-        """Initialize the instance."""
+        """Configure archive resolution and late-stage archive sampling.
+
+        Args:
+            eps: Decision-space neighborhood radius used by archive selection.
+            p: Probability of selecting archive parents after half the budget.
+            **kwargs: Arguments forwarded to :class:`~ascendmoea.Algorithm`.
+        """
         super().__init__(**kwargs)
         self.eps = float(eps)
         self.p = float(p)
+        if self.eps < 0 or not 0 <= self.p <= 1:
+            raise ValueError("eps must be nonnegative and p must be between zero and one")
 
     def _solve(self, problem: Problem, output, should_stop, should_pause) -> None:
         """Execute the vectorized evolutionary loop."""

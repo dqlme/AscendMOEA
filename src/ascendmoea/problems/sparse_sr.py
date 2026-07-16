@@ -10,12 +10,12 @@ from .real_world_base import load_mat, tensor
 
 
 class SparseSR(Problem):
-    """Implement the SparseSR vectorized optimization problem."""
+    """Define the SparseSR benchmark with batched tensor evaluation."""
 
     name = "Sparse_SR"
 
     def __init__(self, n=100, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(n=n, m=2, d=1024, max_fe=max_fe)
 
     def setting(self) -> None:

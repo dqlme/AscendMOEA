@@ -6,10 +6,10 @@ from .mmo_base import MMOProblem
 
 
 class MMF5(MMOProblem):
-    """Implement the MMF5 vectorized optimization problem."""
+    """Define the MMF5 benchmark with batched tensor evaluation."""
 
     name = "MMF5"
 
     def __init__(self, **kwargs):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         super().__init__(7, **kwargs)

@@ -38,10 +38,10 @@ def _wave_constraint(obj: torch.Tensor, cval: float, alpha=0.25 * torch.pi):
 
 
 class LIRCMOP(Problem):
-    """Implement the LIRCMOP vectorized optimization problem."""
+    """Define the LIRCMOP benchmark with batched tensor evaluation."""
 
     def __init__(self, idx: int, n=100, m=None, d=30, max_fe=10000):
-        """Initialize the instance."""
+        """Initialize the suite problem and apply its fixed configuration."""
         self.idx = int(idx)
         self.name = f"LIRCMOP{self.idx}"
         super().__init__(n=n, m=3 if idx >= 13 else 2, d=d, max_fe=max_fe)
