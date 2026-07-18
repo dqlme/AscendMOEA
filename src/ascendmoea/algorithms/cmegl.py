@@ -10,14 +10,14 @@ from .spea_common import cal_fitness, environmental_selection, subset_population
 
 
 def _constraint_violation(population: Population) -> torch.Tensor:
-    """Compute constraint violation."""
+    """Aggregate positive constraint violations for each individual."""
     return torch.clamp(population.cons, min=0).sum(dim=1)
 
 
 def _local_environmental_selection(
     population: Population, n: int, threshold: float
 ) -> tuple[Population, torch.Tensor]:
-    """Compute local environmental selection."""
+    """Select local survivors using feasibility and neighborhood information."""
     cv = _constraint_violation(population)
     accepted = torch.where(cv <= threshold)[0]
     local_population = subset_population(population, accepted)

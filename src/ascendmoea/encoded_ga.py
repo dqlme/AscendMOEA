@@ -11,7 +11,7 @@ class _RealProxy:
     """Expose a real-only problem contract for a selected variable subset."""
 
     def __init__(self, problem, selected: torch.Tensor):
-        """Initialize the instance."""
+        """Bind a real-valued variation callable to an encoded problem."""
         self.device = problem.device
         self.dtype = problem.dtype
         self.D = problem.encoding_counts[0] + problem.encoding_counts[1]
@@ -31,7 +31,7 @@ def _uniform_crossover(
     pro_c: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute uniform crossover."""
+    """Exchange encoded genes with independent Bernoulli masks."""
     n, d = parent1.shape
     swap = torch.rand((n, d), dtype=parent1.dtype, device=parent1.device) < 0.5
     swap &= torch.rand((n, 1), dtype=parent1.dtype, device=parent1.device) <= pro_c
@@ -51,7 +51,7 @@ def _label_operator(
     pro_m: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute label operator."""
+    """Recombine categorical labels and mutate selected positions."""
     offspring = _uniform_crossover(parent1, parent2, pro_c, half)
     n, d = offspring.shape
     site = torch.rand_like(offspring) < pro_m / max(d, 1)
@@ -84,7 +84,7 @@ def _binary_operator(
     pro_m: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute binary operator."""
+    """Recombine and bit-mutate binary decision columns."""
     offspring = _uniform_crossover(parent1, parent2, pro_c, half)
     site = torch.rand_like(offspring) < pro_m / max(offspring.shape[1], 1)
     return torch.where(site, 1 - offspring, offspring)
@@ -96,7 +96,7 @@ def _permutation_operator(
     pro_c: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute permutation operator."""
+    """Apply order crossover and swap mutation to permutation columns."""
     n, d = parent1.shape
     if half:
         offspring = parent1.clone()

@@ -24,7 +24,7 @@ if njit is not None:
         neighbor_order: np.ndarray,
         delete_count: int,
     ) -> np.ndarray:
-        """Compute sequential recurrence."""
+        """Apply iterative nearest-neighbor deletion to a distance matrix."""
         n = sorted_distance.shape[0]
         active = np.ones(n, dtype=np.bool_)
         cursor = np.zeros(n, dtype=np.int64)

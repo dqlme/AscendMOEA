@@ -12,7 +12,7 @@ from .spea_common import truncation
 
 
 def _subset(population: Population, index: torch.Tensor) -> Population:
-    """Compute subset."""
+    """Select population rows while preserving all population fields."""
     index = index.to(torch.long)
     return Population(
         population.decs[index],
@@ -22,7 +22,7 @@ def _subset(population: Population, index: torch.Tensor) -> Population:
 
 
 def _cal_fitness(pop_obj: torch.Tensor, pop_con: torch.Tensor | None) -> torch.Tensor:
-    """Compute cal fitness."""
+    """Calculate constrained or unconstrained scalar fitness."""
     n = pop_obj.shape[0]
     cv = (
         torch.zeros(n, dtype=pop_obj.dtype, device=pop_obj.device)
@@ -48,7 +48,7 @@ def _cal_fitness(pop_obj: torch.Tensor, pop_con: torch.Tensor | None) -> torch.T
 def _environmental_selection(
     population: Population, n: int, is_origin: bool
 ) -> tuple[Population, torch.Tensor, torch.Tensor]:
-    """Compute environmental selection."""
+    """Select survivors for one EMCMO search population."""
     fitness = _cal_fitness(population.objs, population.cons if is_origin else None)
     selected = fitness < 1
     selected_count = int(selected.sum().item())

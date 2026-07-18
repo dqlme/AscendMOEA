@@ -17,22 +17,22 @@ from ..utils import (
 
 
 def _subset(pop: Population, idx: torch.Tensor) -> Population:
-    """Compute subset."""
+    """Select population rows while preserving all population fields."""
     return Population(pop.decs[idx], pop.objs[idx], pop.cons[idx])
 
 
 def _cat(*pops: Population) -> Population:
-    """Compute cat."""
+    """Concatenate populations along the individual dimension."""
     return merge_pop(*[p for p in pops if p.decs.shape[0] > 0])
 
 
 def _empty_like(pop: Population) -> Population:
-    """Compute empty like."""
+    """Create an empty population with matching feature dimensions."""
     return Population(pop.decs[:0], pop.objs[:0], pop.cons[:0])
 
 
 def _dominance_strength_fitness(pop_obj: torch.Tensor, local_mask: torch.Tensor | None = None):
-    """Compute dominance strength fitness."""
+    """Calculate strength-based fitness from pairwise dominance."""
     dom = domination_matrix(pop_obj)
     if local_mask is not None:
         dom = dom & local_mask
@@ -42,7 +42,7 @@ def _dominance_strength_fitness(pop_obj: torch.Tensor, local_mask: torch.Tensor 
 
 
 def _kth_density(x: torch.Tensor, k: int) -> torch.Tensor:
-    """Compute kth density."""
+    """Estimate density from each solution's kth-nearest distance."""
     n = x.shape[0]
     if n <= 1:
         return torch.zeros(n, dtype=x.dtype, device=x.device)
@@ -68,7 +68,7 @@ def _harmonic_crowding(dec: torch.Tensor) -> torch.Tensor:
 
 
 def _sum_nearest_distance(x: torch.Tensor, k: int = 3) -> torch.Tensor:
-    """Compute sum nearest distance."""
+    """Sum each solution's nearest-neighbor distances in decision space."""
     n = x.shape[0]
     if n <= 1:
         return torch.ones(n, dtype=x.dtype, device=x.device)
@@ -94,7 +94,7 @@ def _local_convergence(pop: Population) -> torch.Tensor:
 
 
 def _lex_sort_indices(*columns: torch.Tensor, descending: bool = False) -> torch.Tensor:
-    """Compute lex sort indices."""
+    """Return stable lexicographic row indices for deterministic tie breaking."""
     order = torch.arange(columns[0].numel(), device=columns[0].device)
     for col in reversed(columns):
         order = order[torch.argsort(col[order], descending=descending, stable=True)]
@@ -102,13 +102,13 @@ def _lex_sort_indices(*columns: torch.Tensor, descending: bool = False) -> torch
 
 
 def _truncation_by_distance(*spaces: torch.Tensor, k: int) -> torch.Tensor:
-    """Compute truncation by distance."""
+    """Select removals by iterative lexicographic nearest-distance comparison."""
     dist = sum(pairwise_dist(space, space) for space in spaces)
     return sequential_distance_truncation(dist, k)
 
 
 def _cmmo_fitness(pop: Population):
-    """Compute cmmo fitness."""
+    """Calculate CMMO convergence, decision-density, and scalar fitness values."""
     n = pop.objs.shape[0]
     _, r = _dominance_strength_fitness(pop.objs)
     k = int(math.floor(math.sqrt(n)))
@@ -119,7 +119,7 @@ def _cmmo_fitness(pop: Population):
 
 
 def _cmmo_dec_epsilon_fitness(pop: Population, epsilon: float | torch.Tensor):
-    """Compute cmmo dec epsilon fitness."""
+    """Calculate CMMO decision fitness under an objective epsilon threshold."""
     obj = pop.objs
     diff = obj[None, :, :] - obj[:, None, :]
     eps = torch.as_tensor(epsilon, dtype=obj.dtype, device=obj.device)
@@ -132,7 +132,7 @@ def _cmmo_dec_epsilon_fitness(pop: Population, epsilon: float | torch.Tensor):
 
 
 def _spea2_environmental(pop: Population, n: int, by_dec_epsilon: float | None = None):
-    """Compute spea2 environmental."""
+    """Apply strength fitness and distance truncation to select survivors."""
     if by_dec_epsilon is None:
         d_dec, d_pop, fitness = _cmmo_fitness(pop)
     else:
@@ -159,7 +159,7 @@ def _spea2_environmental(pop: Population, n: int, by_dec_epsilon: float | None =
 
 
 def _hrea_environmental(pop: Population, n: int):
-    """Compute hrea environmental."""
+    """Select the HREA main population by hierarchy and neighborhood diversity."""
     local_c = _local_convergence(pop)
     short_dist = _sum_nearest_distance(pop.decs, 3)
     order = _lex_sort_indices(local_c, -short_dist)
@@ -169,7 +169,7 @@ def _hrea_environmental(pop: Population, n: int):
 
 
 def _hrea_archive_update(pop: Population, n: int, eps: float, st: float):
-    """Compute hrea archive update."""
+    """Update the HREA archive with objective and decision-space niches."""
     if eps != 1 and st < 0.5:
         eps = 2 * (1 - eps) / (2 * st + 1) + 2 * eps - 1
     first_mask = nd_sort(pop.objs)[0] == 1
@@ -243,7 +243,7 @@ def _hrea_archive_update(pop: Population, n: int, eps: float, st: float):
 
 
 def _commea_fitness(pop: Population, operation: str):
-    """Compute commea fitness."""
+    """Calculate CoMMEA convergence and local-niche fitness."""
     local_mask = None
     if operation == "LocalC":
         dist = pairwise_dist(pop.decs, pop.decs)
@@ -254,7 +254,7 @@ def _commea_fitness(pop: Population, operation: str):
 
 
 def _commea_environmental1(pop: Population, n: int, operation: str, evo_state: float):
-    """Compute commea environmental1."""
+    """Select CoMMEA's global convergence population."""
     fitness = _commea_fitness(pop, operation)
     nxt = fitness < 1
     if int(torch.sum(nxt).item()) < n:
@@ -275,7 +275,7 @@ def _commea_environmental1(pop: Population, n: int, operation: str, evo_state: f
 
 
 def _kdis(pop: Population, k: int | float):
-    """Compute kdis."""
+    """Calculate kth-nearest decision-space distances."""
     n = pop.decs.shape[0]
     if n <= 1:
         return torch.ones(n, dtype=pop.decs.dtype, device=pop.decs.device)
@@ -289,7 +289,7 @@ def _kdis(pop: Population, k: int | float):
 
 
 def _commea_environmental2(pop: Population, n: int, operation: str, eps: float):
-    """Compute commea environmental2."""
+    """Select CoMMEA's local decision-diversity population."""
     front_no = nd_sort(pop.objs)[0]
     next_idx = torch.where(front_no == 1)[0]
     remain_idx = torch.where(front_no > 1)[0]

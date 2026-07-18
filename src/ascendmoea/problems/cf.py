@@ -458,7 +458,7 @@ class _CF9_10_Base(Problem):
         )
 
     def _base_obj(self, x: torch.Tensor, harmonic=False):
-        """Compute base obj."""
+        """Evaluate the shared unconstrained objective terms for CF8 through CF10."""
         d = x.shape[1]
         j1 = torch.arange(3, d, 3, device=x.device)
         j2 = torch.arange(4, d, 3, device=x.device)

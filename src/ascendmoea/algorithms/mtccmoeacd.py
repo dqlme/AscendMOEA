@@ -21,12 +21,12 @@ from .cmoeacd import (
 
 
 def _cv(cons: torch.Tensor) -> torch.Tensor:
-    """Compute cv."""
+    """Aggregate positive constraint violations for each individual."""
     return torch.sum(torch.clamp(cons, min=0.0), dim=1)
 
 
 def _objective_task_selection(pop: Population, n: int) -> Population:
-    """Compute objective task selection."""
+    """Select survivors for the objective-oriented decomposition task."""
     obj = pop.objs
     less_eq = obj[:, None, :] <= obj[None, :, :]
     less = obj[:, None, :] < obj[None, :, :]
@@ -45,7 +45,7 @@ def _objective_task_selection(pop: Population, n: int) -> Population:
 
 
 def _boundary_task_selection(pop: Population, n: int) -> Population:
-    """Compute boundary task selection."""
+    """Select survivors for the feasibility-boundary task."""
     cv = _cv(pop.cons)
     order_cv = torch.argsort(cv)
     pre = _subset(pop, order_cv[: min(pop.decs.shape[0], max(n, 2 * n))])
@@ -63,7 +63,7 @@ def _boundary_task_selection(pop: Population, n: int) -> Population:
 
 
 def _final_feasible_output(pop: Population, n: int) -> Population:
-    """Compute final feasible output."""
+    """Return feasible nondominated solutions when available."""
     cv = _cv(pop.cons)
     feasible = torch.where(cv <= 0)[0]
     if feasible.numel() > 0:
@@ -86,7 +86,7 @@ def _final_feasible_output(pop: Population, n: int) -> Population:
 
 
 def _make_offspring(problem: Problem, pop: Population, n: int) -> Population:
-    """Compute make offspring."""
+    """Generate offspring for one task with optional migrated parents."""
     if pop.decs.shape[0] == 0:
         return _ensure_pop(problem, None)
 

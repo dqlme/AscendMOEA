@@ -17,7 +17,7 @@ from ..utils import (
 
 
 def _subset(population: Population, index: torch.Tensor) -> Population:
-    """Compute subset."""
+    """Select population rows while preserving all population fields."""
     index = index.to(torch.long)
     return Population(
         population.decs[index],
@@ -27,7 +27,7 @@ def _subset(population: Population, index: torch.Tensor) -> Population:
 
 
 def _cal_cv(constraints: torch.Tensor) -> torch.Tensor:
-    """Compute cal cv."""
+    """Aggregate positive constraint violations for each individual."""
     violation = torch.clamp(constraints, min=0)
     maximum = violation.max(dim=0).values
     normalized = torch.where(maximum > 0, violation / maximum, torch.zeros_like(violation))
@@ -56,7 +56,7 @@ def _cal_sde(pop_obj: torch.Tensor) -> torch.Tensor:
 
 
 def _cal_fitness(pop_obj: torch.Tensor, cv: torch.Tensor | None = None) -> torch.Tensor:
-    """Compute cal fitness."""
+    """Calculate stage-dependent fitness from objectives and constraints."""
     n = pop_obj.shape[0]
     if cv is None:
         cv = torch.zeros(n, dtype=pop_obj.dtype, device=pop_obj.device)
@@ -77,7 +77,7 @@ def _cal_fitness(pop_obj: torch.Tensor, cv: torch.Tensor | None = None) -> torch
 
 
 def _truncation(pop_obj: torch.Tensor, delete_count: int) -> torch.Tensor:
-    """Compute truncation."""
+    """Remove crowded candidates by sequential distance comparison."""
     distance = _cosine_distance(pop_obj, pop_obj)
     return sequential_distance_truncation(distance, delete_count)
 
@@ -85,7 +85,7 @@ def _truncation(pop_obj: torch.Tensor, delete_count: int) -> torch.Tensor:
 def _environmental_selection(
     population: Population, fitness: torch.Tensor, n: int
 ) -> tuple[Population, torch.Tensor]:
-    """Compute environmental selection."""
+    """Select survivors for the current feasibility-search stage."""
     selected = fitness < 1
     selected_count = int(selected.sum().item())
     if selected_count < n:

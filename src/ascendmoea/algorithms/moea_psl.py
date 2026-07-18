@@ -21,7 +21,7 @@ def _train_rbm_batch1(
     momentum: float,
     learn_rate: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Compute train rbm batch1."""
+    """Update an RBM from one visible-data batch using contrastive divergence."""
     weight_increment = torch.zeros_like(weight)
     visible_increment = torch.zeros_like(visible_bias)
     hidden_increment = torch.zeros_like(hidden_bias)
@@ -60,7 +60,7 @@ class _RBM:
     """Implement the _RBM multi-objective evolutionary algorithm."""
 
     def __init__(self, visible: int, hidden: int, problem: Problem):
-        """Initialize the instance."""
+        """Initialize restricted Boltzmann machine parameters."""
         self.visible = int(visible)
         self.hidden = int(hidden)
         self.epoch = 10
@@ -73,7 +73,7 @@ class _RBM:
         self.hidden_bias = torch.zeros(hidden, dtype=problem.dtype, device=problem.device)
 
     def train(self, x: torch.Tensor) -> None:
-        """Compute train."""
+        """Fit the RBM to a complete decision-data batch."""
         x = x.to(self.weight.dtype)
         momentum = 0.9 if self.epoch > 5 else self.momentum
         self.weight, self.visible_bias, self.hidden_bias = _train_rbm_batch1(
@@ -87,12 +87,12 @@ class _RBM:
         )
 
     def reduce(self, x: torch.Tensor) -> torch.Tensor:
-        """Compute reduce."""
+        """Project visible decisions into hidden activation probabilities."""
         probability = torch.sigmoid(x.to(self.weight.dtype) @ self.weight + self.hidden_bias)
         return probability > torch.rand_like(probability)
 
     def recover(self, hidden: torch.Tensor) -> torch.Tensor:
-        """Compute recover."""
+        """Reconstruct visible decisions from hidden representations."""
         probability = torch.sigmoid(
             hidden.to(self.weight.dtype) @ self.weight.T + self.visible_bias
         )
@@ -103,7 +103,7 @@ class _DAE:
     """Implement the _DAE multi-objective evolutionary algorithm."""
 
     def __init__(self, visible: int, hidden: int, population_size: int, problem: Problem):
-        """Initialize the instance."""
+        """Build the denoising autoencoder and its optimizer state."""
         self.visible = int(visible)
         self.hidden = int(hidden)
         self.epoch = 10
@@ -122,12 +122,12 @@ class _DAE:
         self.upper = torch.empty(0, dtype=problem.dtype, device=problem.device)
 
     def _normalize(self, x: torch.Tensor) -> torch.Tensor:
-        """Compute normalize."""
+        """Normalize each feature using stored training bounds."""
         span = self.upper - self.lower
         return torch.where(span != 0, (x - self.lower) / span, torch.zeros_like(x))
 
     def train(self, x: torch.Tensor) -> None:
-        """Compute train."""
+        """Fit the denoising autoencoder to the supplied decisions."""
         self.lower = x.min(dim=0).values
         self.upper = x.max(dim=0).values
         normalized = self._normalize(x)
@@ -161,12 +161,12 @@ class _DAE:
             self.wb -= velocity_b
 
     def reduce(self, x: torch.Tensor) -> torch.Tensor:
-        """Compute reduce."""
+        """Encode decisions into the learned latent representation."""
         normalized = self._normalize(x)
         return torch.sigmoid(normalized @ self.wa[:, 1:].T + self.wa[:, 0])
 
     def recover(self, hidden: torch.Tensor) -> torch.Tensor:
-        """Compute recover."""
+        """Decode latent vectors back into bounded decision space."""
         normalized = torch.sigmoid(hidden @ self.wb[:, 1:].T + self.wb[:, 0])
         return normalized * (self.upper - self.lower) + self.lower
 
@@ -178,7 +178,7 @@ class MOEAPSL(Algorithm):
 
     @staticmethod
     def _latin(n: int, d: int, problem: Problem) -> torch.Tensor:
-        """Compute latin."""
+        """Generate a Latin-hypercube sample on the requested device."""
         order = torch.argsort(torch.rand((n, d), dtype=problem.dtype, device=problem.device), dim=0)
         return (
             torch.rand((n, d), dtype=problem.dtype, device=problem.device) + order.to(problem.dtype)
@@ -186,7 +186,7 @@ class MOEAPSL(Algorithm):
 
     @staticmethod
     def _binary_crossover(parent1: torch.Tensor, parent2: torch.Tensor) -> torch.Tensor:
-        """Compute binary crossover."""
+        """Recombine binary latent vectors with uniform masks."""
         exchange = (
             torch.rand(parent1.shape, dtype=torch.get_default_dtype(), device=parent1.device) < 0.5
         )
@@ -196,7 +196,7 @@ class MOEAPSL(Algorithm):
 
     @staticmethod
     def _real_crossover(parent1: torch.Tensor, parent2: torch.Tensor) -> torch.Tensor:
-        """Compute real crossover."""
+        """Recombine real latent vectors with simulated binary crossover."""
         mu = torch.rand_like(parent1)
         beta = torch.where(mu <= 0.5, (2 * mu) ** (1 / 21), (2 - 2 * mu) ** (-1 / 21))
         sign = torch.where(
@@ -211,7 +211,7 @@ class MOEAPSL(Algorithm):
 
     @staticmethod
     def _real_mutation(offspring: torch.Tensor, problem: Problem) -> torch.Tensor:
-        """Compute real mutation."""
+        """Mutate real latent vectors with bounded polynomial mutation."""
         n, d = offspring.shape
         lower = problem.lower.view(1, d).expand(n, d)
         upper = problem.upper.view(1, d).expand(n, d)
@@ -232,7 +232,7 @@ class MOEAPSL(Algorithm):
     def _model_training(
         mask: torch.Tensor, dec: torch.Tensor, real: bool, problem: Problem
     ) -> tuple[_RBM, _DAE | None, torch.Tensor, torch.Tensor]:
-        """Compute model training."""
+        """Fit the configured latent model to the current nondominated decisions."""
         all_zero = torch.all(~mask, dim=0)
         all_one = torch.all(mask, dim=0)
         other = ~all_zero & ~all_one
@@ -265,7 +265,7 @@ class MOEAPSL(Algorithm):
         all_zero: torch.Tensor | None,
         all_one: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute operator."""
+        """Generate offspring through latent-space crossover and mutation."""
         half = parent_mask.shape[0] // 2
         p1_mask = parent_mask[:half]
         p2_mask = parent_mask[half : 2 * half]
@@ -325,7 +325,7 @@ class MOEAPSL(Algorithm):
         old_length: int,
         learned_count: int,
     ) -> tuple[Population, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, float]:
-        """Compute environmental selection."""
+        """Select sparse survivors by fitness and decision-space truncation."""
         success = torch.zeros(
             population.objs.shape[0], dtype=torch.bool, device=population.objs.device
         )

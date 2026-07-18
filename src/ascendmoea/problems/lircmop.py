@@ -9,7 +9,7 @@ from ..utils import uniform_point
 
 
 def _ellipse_constraints(obj: torch.Tensor, p, q, a, b, r=0.1, theta=-0.25 * torch.pi):
-    """Compute ellipse constraints."""
+    """Evaluate rotated elliptical exclusion constraints in objective space."""
     p = torch.as_tensor(p, dtype=obj.dtype, device=obj.device)
     q = torch.as_tensor(q, dtype=obj.dtype, device=obj.device)
     a = torch.as_tensor(a, dtype=obj.dtype, device=obj.device)
@@ -25,7 +25,7 @@ def _ellipse_constraints(obj: torch.Tensor, p, q, a, b, r=0.1, theta=-0.25 * tor
 
 
 def _wave_constraint(obj: torch.Tensor, cval: float, alpha=0.25 * torch.pi):
-    """Compute wave constraint."""
+    """Evaluate the oscillatory LIR-CMOP decision-space constraint."""
     alpha = torch.as_tensor(alpha, dtype=obj.dtype, device=obj.device)
     salpha = torch.sin(alpha)
     calpha = torch.cos(alpha)
@@ -53,7 +53,7 @@ class LIRCMOP(Problem):
         self.upper = torch.ones(self.D, dtype=torch.float64, device=self.device)
 
     def _sum_sincos(self, x: torch.Tensor):
-        """Compute sum sincos."""
+        """Aggregate indexed sine and cosine distance terms."""
         j = torch.arange(2, self.D + 1, device=x.device)
         j_idx = j - 1
         coef = (0.5 * j.to(x.dtype) / self.D * torch.pi).unsqueeze(0)

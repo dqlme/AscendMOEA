@@ -14,7 +14,7 @@ from ..utils import uniform_point
 def _constraint_2obj(
     x1: torch.Tensor, sum1: torch.Tensor, mode: int, diff: tuple[float, float, float]
 ) -> torch.Tensor:
-    """Compute constraint 2obj."""
+    """Evaluate the two-objective DAS-CMOP constraint construction."""
     a = 20.0
     b = 2 * diff[0] - 1
     d = 0.0 if diff[1] == 0.0 else 0.5
@@ -57,7 +57,7 @@ def _constraint_3obj(
     mode: int,
     diff: tuple[float, float, float],
 ) -> torch.Tensor:
-    """Compute constraint 3obj."""
+    """Evaluate the three-objective DAS-CMOP constraint construction."""
     a = 20.0
     b = 2 * diff[0] - 1
     d = 0.0 if diff[1] == 0.0 else 0.5
@@ -91,7 +91,7 @@ def _constraint_3obj(
 def _constraint_2obj_numpy(
     x1: np.ndarray, sum1: np.ndarray, mode: int, diff: tuple[float, float, float]
 ) -> np.ndarray:
-    """Compute constraint 2obj numpy."""
+    """Evaluate the two-objective constraints for NumPy reference generation."""
     a = 20.0
     b = 2 * diff[0] - 1
     d = 0.0 if diff[1] == 0.0 else 0.5
@@ -118,7 +118,7 @@ def _constraint_2obj_numpy(
 
 
 def _reference_dascmop_1_or_4(n: int, idx: int) -> np.ndarray:
-    """Compute reference dascmop 1 or 4."""
+    """Generate reference points for the first and fourth DAS-CMOP forms."""
     x = np.arange(n, dtype=np.float64) / max(n - 1, 1)
     reference = np.column_stack((x, 1 - x**2)) + 0.5
     x1 = (np.sqrt(1 - 4 * (-reference[:, 0] + reference[:, 1] - 1)) - 1) / 2
@@ -130,7 +130,7 @@ def _reference_dascmop_1_or_4(n: int, idx: int) -> np.ndarray:
 
 
 def _estimate_x1_das36(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    """Compute estimate x1 das36."""
+    """Estimate feasible first-variable values for DAS-CMOP3 and DAS-CMOP6."""
     target = (x - y).reshape(-1)
     a = torch.linspace(0.0, 1.0, 10001, dtype=x.dtype, device=x.device)
     curve = a - 1.0 + torch.sqrt(a) - 0.5 * torch.abs(torch.sin(5 * torch.pi * a))

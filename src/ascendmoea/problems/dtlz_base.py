@@ -11,7 +11,7 @@ from ..utils import uniform_point
 
 
 def _linear_shape(x: torch.Tensor, m: int) -> torch.Tensor:
-    """Compute linear shape."""
+    """Map leading decision variables to the linear DTLZ1 front shape."""
     left = torch.flip(
         torch.cumprod(
             torch.cat(
@@ -36,7 +36,7 @@ def _linear_shape(x: torch.Tensor, m: int) -> torch.Tensor:
 
 
 def _spherical_shape(theta: torch.Tensor) -> torch.Tensor:
-    """Compute spherical shape."""
+    """Map angular decision variables to a spherical DTLZ front."""
     left = torch.flip(
         torch.cumprod(
             torch.cat(

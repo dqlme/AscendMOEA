@@ -17,7 +17,7 @@ from .sparse_common import subset_population
 
 
 def _constraint_violation(population: Population) -> torch.Tensor:
-    """Compute constraint violation."""
+    """Aggregate positive constraint violations for each individual."""
     return torch.clamp(population.cons, min=0).sum(dim=1)
 
 
@@ -30,7 +30,7 @@ def _cosine_similarity(points: torch.Tensor) -> torch.Tensor:
 
 
 def _distance_truncation(pop_obj: torch.Tensor, delete_count: int) -> torch.Tensor:
-    """Compute distance truncation."""
+    """Retain diverse candidates by sequential nearest-distance deletion."""
     distance = pairwise_dist(pop_obj, pop_obj)
     return sequential_distance_truncation(distance, delete_count)
 
@@ -42,7 +42,7 @@ class BiCo(Algorithm):
 
     @staticmethod
     def _update_archive(population: Population, n: int) -> Population:
-        """Compute update archive."""
+        """Update the infeasible archive with convergence and diversity pressure."""
         cv = _constraint_violation(population)
         front_no, _ = nd_sort(torch.cat([population.objs, cv.unsqueeze(1)], dim=1), n_sort=1)
         selected = (front_no == 1) & (cv > 0)
@@ -73,7 +73,7 @@ class BiCo(Algorithm):
 
     @staticmethod
     def _mating_selection(population: Population, archive: Population, n: int) -> Population:
-        """Compute mating selection."""
+        """Select parent indices from the main population and archive."""
         if archive.objs.shape[0] < n:
             selected = tournament_selection(2, n, -_constraint_violation(population))
             return subset_population(population, selected)
@@ -117,7 +117,7 @@ class BiCo(Algorithm):
 
     @staticmethod
     def _environmental_selection(population: Population, n: int) -> Population:
-        """Compute environmental selection."""
+        """Select the next main population and complementary archive."""
         front_no, max_front = nd_sort(population.objs, population.cons, n_sort=n)
         selected = front_no < max_front
         last = torch.where(front_no == max_front)[0]

@@ -23,7 +23,7 @@ class RWMOP2(RWMOPBase):
 
     @staticmethod
     def _two_sum(left, right):
-        """Compute two sum."""
+        """Return a floating-point sum and its rounding residual."""
         total = left + right
         right_virtual = total - left
         left_virtual = total - right_virtual
@@ -32,7 +32,7 @@ class RWMOP2(RWMOPBase):
 
     @staticmethod
     def _two_product_scalar(value, multiplier):
-        """Compute two product scalar."""
+        """Return a scalar product and its compensated rounding residual."""
         product = value * multiplier
         split = 4097.0 * value
         high = split - (split - value)
@@ -42,7 +42,7 @@ class RWMOP2(RWMOPBase):
 
     @classmethod
     def _mass_sum(cls, d1, d2, d3):
-        """Compute mass sum."""
+        """Evaluate the cancellation-sensitive layered mass expression."""
         if d1.dtype != torch.float32:
             return 100.0 * d1 + 2770.0 * (d2 - d1) + 7780.0 * (d3 - d2)
 
@@ -56,7 +56,7 @@ class RWMOP2(RWMOPBase):
 
     @staticmethod
     def _terms(x):
-        """Compute terms."""
+        """Unpack decisions and derive shared platform physics terms."""
         d1, d2, d3, b, length = x.unbind(dim=1)
         rho3 = 7780.0
         e1, e2 = 1.6, 70.0

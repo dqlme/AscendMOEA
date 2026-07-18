@@ -166,7 +166,7 @@ def crowding_distance(pop_obj: torch.Tensor, front_no: torch.Tensor) -> torch.Te
 
 
 def _polynomial_mutation(problem, off: torch.Tensor, pro_m: float, dis_m: float) -> torch.Tensor:
-    """Compute polynomial mutation."""
+    """Apply bounded polynomial mutation to selected real-valued genes."""
     _, d = off.shape
     device = off.device
     dtype = off.dtype
@@ -197,7 +197,7 @@ def _ga_real(
     dis_m: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute ga real."""
+    """Generate real-coded offspring with SBX and polynomial mutation."""
     n, d = parent1.shape
     mu = torch.rand((n, d), dtype=parent1.dtype, device=parent1.device)
     beta = torch.where(
@@ -249,7 +249,7 @@ def _uniform_crossover(
     pro_c: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute uniform crossover."""
+    """Exchange genes between paired parents with Bernoulli masks."""
     n, d = parent1.shape
     swap = torch.rand((n, d), dtype=parent1.dtype, device=parent1.device) < 0.5
     swap &= torch.rand((n, 1), dtype=parent1.dtype, device=parent1.device) <= pro_c
@@ -269,7 +269,7 @@ def _ga_label(
     pro_m: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute ga label."""
+    """Generate offspring for categorical label variables."""
     offspring = _uniform_crossover(parent1, parent2, pro_c, half)
     n, d = offspring.shape
     site = torch.rand((n, d), dtype=offspring.dtype, device=offspring.device) < (pro_m / max(d, 1))
@@ -308,7 +308,7 @@ def _ga_binary(
     pro_m: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute ga binary."""
+    """Generate offspring for binary variables by crossover and bit mutation."""
     offspring = _uniform_crossover(parent1, parent2, pro_c, half)
     site = torch.rand_like(offspring) < (pro_m / max(offspring.shape[1], 1))
     return torch.where(site, 1 - offspring, offspring)
@@ -320,7 +320,7 @@ def _order_crossover(
     cut: torch.Tensor,
     crossover: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute order crossover."""
+    """Build permutation children while preserving relative element order."""
     n, d = base.shape
     positions = torch.arange(d, device=base.device).unsqueeze(0).expand(n, d)
     prefix = positions <= cut.unsqueeze(1)
@@ -334,7 +334,7 @@ def _order_crossover(
 
 
 def _slight_permutation_mutation(offspring: torch.Tensor) -> torch.Tensor:
-    """Compute slight permutation mutation."""
+    """Perturb permutations with swap, insertion, or reversal moves."""
     n, d = offspring.shape
     if d <= 1:
         return offspring
@@ -377,7 +377,7 @@ def _ga_permutation(
     pro_c: float,
     half: bool,
 ) -> torch.Tensor:
-    """Compute ga permutation."""
+    """Generate permutation offspring with order crossover and mutation."""
     n, d = parent1.shape
     if half:
         base = parent1

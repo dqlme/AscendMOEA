@@ -9,7 +9,7 @@ from ..utils import uniform_point
 
 
 def _shape_linear(x: torch.Tensor, m: int) -> torch.Tensor:
-    """Compute shape linear."""
+    """Map leading variables to the linear SMOP front shape."""
     return torch.fliplr(
         torch.cumprod(
             torch.cat(
@@ -27,7 +27,7 @@ def _shape_linear(x: torch.Tensor, m: int) -> torch.Tensor:
 
 
 def _shape_smop4(x: torch.Tensor, m: int) -> torch.Tensor:
-    """Compute shape smop4."""
+    """Map leading variables to the SMOP4-specific front shape."""
     y = x[:, : m - 1]
     return torch.fliplr(
         torch.cumprod(
@@ -50,7 +50,7 @@ def _shape_smop4(x: torch.Tensor, m: int) -> torch.Tensor:
 
 
 def _shape_spherical(x: torch.Tensor, m: int) -> torch.Tensor:
-    """Compute shape spherical."""
+    """Map leading variables to a spherical SMOP front."""
     y = x[:, : m - 1]
     return torch.fliplr(
         torch.cumprod(
@@ -73,17 +73,17 @@ def _shape_spherical(x: torch.Tensor, m: int) -> torch.Tensor:
 
 
 def _g1(x: torch.Tensor, t: float):
-    """Compute g1."""
+    """Evaluate the first SMOP distance landscape."""
     return (x - t) ** 2
 
 
 def _g2(x: torch.Tensor, t: float):
-    """Compute g2."""
+    """Evaluate the second SMOP distance landscape."""
     return 2 * (x - t) ** 2 + torch.sin(2 * torch.pi * (x - t)) ** 2
 
 
 def _g3(x: torch.Tensor, t: float):
-    """Compute g3."""
+    """Evaluate the third SMOP distance landscape."""
     return 4 - (x - t) - 4 / torch.exp(100 * (x - t) ** 2)
 
 

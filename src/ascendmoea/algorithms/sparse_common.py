@@ -58,7 +58,7 @@ def environmental_selection(
     *,
     fallback_to_dec: bool = False,
 ) -> SparsePopulation:
-    """Compute environmental selection."""
+    """Select sparse survivors by front rank, crowding, and mask diversity."""
     unique = unique_row_indices(population.objs)
     if fallback_to_dec and unique.numel() == 1:
         unique = unique_row_indices(population.decs)
@@ -91,7 +91,7 @@ def variable_fitness(
     *,
     keep_all_samples: bool,
 ) -> tuple[torch.Tensor, Population, torch.Tensor, torch.Tensor]:
-    """Compute variable fitness."""
+    """Estimate each variable's usefulness from single-variable evaluations."""
     real = bool(torch.any(problem.encoding != 4).item())
     repeats = 1 + 4 * int(real)
     fitness = torch.zeros(problem.D, dtype=problem.dtype, device=problem.device)
@@ -129,7 +129,7 @@ def variable_fitness(
 
 
 def random_decisions(problem: Problem, n: int) -> torch.Tensor:
-    """Compute random decisions."""
+    """Sample encoded decisions without applying a sparse activation mask."""
     dec = torch.rand((n, problem.D), dtype=problem.dtype, device=problem.device)
     dec = dec * (problem.upper - problem.lower) + problem.lower
     dec[:, problem.encoding == 4] = 1
@@ -138,7 +138,7 @@ def random_decisions(problem: Problem, n: int) -> torch.Tensor:
 
 def initial_mask(n: int, d: int, fitness: torch.Tensor) -> torch.Tensor:
     # Sampling uses replacement before the selected mask bits are enabled.
-    """Compute initial mask."""
+    """Create an initial sparse Boolean mask guided by variable fitness."""
     selected_count = torch.ceil(
         torch.rand((n, 1), dtype=fitness.dtype, device=fitness.device) * d
     ).to(torch.long)
@@ -174,7 +174,7 @@ def _update_mask(
     rows: torch.Tensor,
     value: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute update mask."""
+    """Activate or deactivate mask positions using variable fitness."""
     one_hot = torch.zeros_like(mask)
     one_hot.scatter_(1, index.unsqueeze(1), rows.unsqueeze(1))
     set_one = one_hot & value.unsqueeze(1)
@@ -187,7 +187,7 @@ def sparse_mask_crossover(
     parent2: torch.Tensor,
     fitness: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute sparse mask crossover."""
+    """Recombine sparse masks while favoring useful active variables."""
     n, d = parent1.shape
     remove = torch.rand((n,), dtype=fitness.dtype, device=fitness.device) < 0.5
     candidates = torch.where(remove.unsqueeze(1), parent1 & ~parent2, ~parent1 & parent2)
@@ -205,7 +205,7 @@ def sparse_mask_mutation(
     fitness: torch.Tensor,
     allowed: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """Compute sparse mask mutation."""
+    """Mutate sparse masks with variable-fitness-guided bit changes."""
     n, d = mask.shape
     remove = torch.rand((n,), dtype=fitness.dtype, device=fitness.device) < 0.5
     allowed_mask = torch.ones_like(mask) if allowed is None else allowed
@@ -220,7 +220,7 @@ def sparse_mask_mutation(
 
 
 def sbx_first_child(parent1: torch.Tensor, parent2: torch.Tensor) -> torch.Tensor:
-    """Compute sbx first child."""
+    """Return the first simulated-binary-crossover child for each parent pair."""
     n, d = parent1.shape
     mu = torch.rand((n, d), dtype=parent1.dtype, device=parent1.device)
     beta = torch.where(
@@ -249,7 +249,7 @@ def polynomial_mutation_at_sites(
     sites: torch.Tensor,
     mu: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """Compute polynomial mutation at sites."""
+    """Apply polynomial mutation only at the supplied decision sites."""
     n, d = offspring.shape
     lower_matrix = lower.view(1, d).expand(n, d)
     upper_matrix = upper.view(1, d).expand(n, d)
@@ -271,7 +271,7 @@ def polynomial_mutation_at_sites(
 
 
 def convergence(pop_obj: torch.Tensor) -> torch.Tensor:
-    """Compute convergence."""
+    """Calculate a scalar convergence score for each objective vector."""
     front_no, _ = nd_sort(pop_obj, n_sort=float("inf"))
     objective_sum = pop_obj.sum(dim=1)
     spread = objective_sum.max() - objective_sum.min()

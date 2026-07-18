@@ -91,7 +91,7 @@ class HistoryMonitor(Monitor):
     """
 
     def __init__(self, copy_to_cpu: bool = True) -> None:
-        """Initialize the instance."""
+        """Create an empty in-memory generation history."""
         self.copy_to_cpu = bool(copy_to_cpu)
         self.records: list[GenerationRecord] = []
 
@@ -158,7 +158,7 @@ class Workflow:
             monitor.on_start(self.algorithm, self.problem)
 
         def generation_callback(algorithm: Algorithm, problem: Problem) -> None:
-            """Compute generation callback."""
+            """Forward a generation boundary to monitors and the user callback."""
             for monitor in self.monitors:
                 monitor.on_generation(algorithm, problem)
             if output is not None:

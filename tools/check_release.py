@@ -39,6 +39,7 @@ REQUIRED_FILES = {
     "SECURITY.md",
     "pyproject.toml",
 }
+REQUIRED_PATHS = {".github/workflows/ci.yml"}
 
 
 def _decorator_name(node: ast.expr) -> str:
@@ -59,8 +60,20 @@ def check_docstrings(path: Path) -> list[str]:
             continue
         if any(_decorator_name(item) == "overload" for item in node.decorator_list):
             continue
-        if ast.get_docstring(node) is None:
+        docstring = ast.get_docstring(node)
+        if docstring is None:
             issues.append(f"{path}:{node.lineno}: {node.name} has no docstring")
+            continue
+        first_line = docstring.splitlines()[0]
+        normalized_name = node.name.strip("_").replace("_", " ")
+        generated = {
+            "Initialize the instance.",
+            f"Compute {normalized_name}.",
+            f"Create {normalized_name}.",
+            f"Return {normalized_name}.",
+        }
+        if first_line in generated:
+            issues.append(f"{path}:{node.lineno}: {node.name} has a mechanical docstring")
     return issues
 
 
@@ -124,6 +137,9 @@ def main() -> int:
 
     missing = sorted(REQUIRED_FILES.difference(path.name for path in root.iterdir()))
     issues.extend(f"{root}: missing required file {name}" for name in missing)
+    for relative_path in sorted(REQUIRED_PATHS):
+        if not (root / relative_path).is_file():
+            issues.append(f"{root}: missing required path {relative_path}")
     for path in iter_project_files(root):
         if path.suffix.lower() == ".py":
             issues.extend(check_docstrings(path))

@@ -15,12 +15,11 @@ AscendMOEA 是面向华为昇腾 NPU 与通用 CPU 的张量化多目标进化�
 python -m pip install .
 ```
 
-实验、绘图和开发依赖按需安装：
+实验和绘图依赖按需安装：
 
 ```bash
 python -m pip install ".[experiment]"
 python -m pip install ".[plot]"
-python -m pip install -e ".[dev,all]"
 ```
 
 昇腾环境需要预先安装互相兼容的驱动、CANN、PyTorch 和 `torch_npu`。加载 CANN 环境
@@ -68,27 +67,38 @@ print("IGD", igd(result.population, problem.optimum))
 - `ascendmoea.experiment`：可复现重复实验、汇总和非参数统计。
 - `ascendmoea.plotting`：目标空间、决策空间和指标曲线。
 
-完整接口从 [API 索引](docs/17_API速查.md) 进入。首次使用建议依次阅读
+完整接口从 [API 索引](docs/15_API速查.md) 进入。首次使用建议依次阅读
 [安装与昇腾环境](docs/02_安装与昇腾环境.md)、
 [第一个优化任务](docs/03_第一个优化任务.md) 和
-[完整案例集](docs/16_完整案例集.md)。全部文档入口见
+[可运行案例集](docs/14_可运行案例集.md)。全部文档入口见
 [中文文档阅读路线](docs/00_阅读路线.md)。
 
-## 验证
+## 安装验证
 
 ```bash
-python -m ruff check src tests examples tools
-python -m pytest
-python tools/check_release.py
-python tools/validate_release.py --device cpu --cpu-threads 1 \
-  --output validation-results/cpu.json
+python - <<'PY'
+import ascendmoea
+from ascendmoea.algorithms import NSGAII
+from ascendmoea.problems import DTLZ2
+
+problem = DTLZ2(n=20, m=2, max_fe=100)
+result = ascendmoea.optimize(
+    NSGAII(save=1),
+    problem,
+    device="cpu",
+    cpu_threads=1,
+    seed=42,
+)
+print("version", ascendmoea.__version__)
+print("device", result.device)
+print("population", len(result.population))
+print("evaluations", result.evaluations)
+PY
 ```
 
-NPU 环境把验证设备改为 `npu:0`。当前发行构建的环境、检查范围和结果记录在
-[发行验证记录](docs/18_发行验证记录.md)。
-
-GitHub CI 在 Python 3.9 和 3.12 上重复执行发布卫生、单元测试、CPU 目录验证和构建；
-NPU 门禁必须在具有匹配驱动、CANN、PyTorch 与设备后端的昇腾环境中执行。
+输出应显示版本号、`cpu`、非空种群以及不小于预算的评价次数。昇腾环境可把
+`device="cpu"` 改为 `device="npu:0"`，并先按
+[安装与昇腾环境](docs/02_安装与昇腾环境.md) 加载 CANN 环境。
 
 ## 许可
 

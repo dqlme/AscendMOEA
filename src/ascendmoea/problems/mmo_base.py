@@ -190,7 +190,7 @@ def _call_with_torch_proxy(
 
 
 def _rlp(x: torch.Tensor) -> torch.Tensor:
-    """Compute rlp."""
+    """Evaluate the relay-location application problem batch."""
     data = _load_app_mat("RLP_data.mat")
     points_a = torch.as_tensor(data["A"][:, :2], dtype=x.dtype, device=x.device)
     points_b = torch.as_tensor(data["B"][:, :2], dtype=x.dtype, device=x.device)
@@ -206,7 +206,7 @@ def _rlp(x: torch.Tensor) -> torch.Tensor:
 
 
 def _ueclp(x: torch.Tensor) -> torch.Tensor:
-    """Compute ueclp."""
+    """Evaluate the underground-economy cable-layout problem batch."""
     points1 = torch.tensor([[-2.0, -1.0], [-1.0, -1.0]], dtype=x.dtype, device=x.device)
     points2 = torch.tensor([[2.0, 1.0], [1.0, 1.0]], dtype=x.dtype, device=x.device)
     points3 = torch.tensor([[-2.0, 1.0], [-1.0, 1.0]], dtype=x.dtype, device=x.device)

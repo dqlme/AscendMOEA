@@ -26,7 +26,7 @@ class RWMOP6(RWMOPBase):
 
     @staticmethod
     def _values(x):
-        """Compute values."""
+        """Derive shared process values from a decision batch."""
         values = list(x.unbind(dim=1))
         values[2] = round_half_away_from_zero(values[2])
         return values

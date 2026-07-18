@@ -23,7 +23,7 @@ class RWMOP4(RWMOPBase):
 
     @staticmethod
     def _terms(x):
-        """Compute terms."""
+        """Unpack decisions and derive shared engineering terms."""
         x1, x2, x3, x4 = x.unbind(dim=1)
         p, length, e, g = 6000.0, 14.0, 30e6, 12e6
         pc = (

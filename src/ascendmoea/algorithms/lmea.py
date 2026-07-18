@@ -46,7 +46,7 @@ class LMEA(Algorithm):
 
     @staticmethod
     def _kmeans_two(points: torch.Tensor) -> torch.Tensor:
-        """Compute kmeans two."""
+        """Partition feature rows into two clusters with batched centroid updates."""
         n = points.shape[0]
         if n < 2:
             return torch.zeros(n, dtype=torch.long, device=points.device)
@@ -75,7 +75,7 @@ class LMEA(Algorithm):
     def _variable_clustering(
         self, problem: Problem, population: Population
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute variable clustering."""
+        """Cluster variables by objective sensitivity into position and distance groups."""
         n, d = population.decs.shape
         front_no, _ = nd_sort(population.objs, n_sort=1)
         nondominated = front_no == 1
@@ -139,7 +139,7 @@ class LMEA(Algorithm):
         population: Population,
         distance_variables: torch.Tensor,
     ) -> list[torch.Tensor]:
-        """Compute correlation analysis."""
+        """Estimate pairwise variable correlations from controlled perturbations."""
         groups: list[list[int]] = []
         population_size = population.decs.shape[0]
         for variable in distance_variables.detach().cpu().tolist():
@@ -172,7 +172,7 @@ class LMEA(Algorithm):
 
     @staticmethod
     def _device_rng_state(problem: Problem) -> Optional[torch.Tensor]:
-        """Compute device rng state."""
+        """Capture the random-number generator state for the active device."""
         if problem.device.type == "cpu":
             return torch.get_rng_state().clone()
         backend = getattr(torch, problem.device.type, None)
@@ -182,7 +182,7 @@ class LMEA(Algorithm):
 
     @staticmethod
     def _set_device_rng_state(problem: Problem, state: torch.Tensor) -> None:
-        """Compute set device rng state."""
+        """Restore a previously captured device random-number generator state."""
         if problem.device.type == "cpu":
             torch.set_rng_state(state)
             return
@@ -196,7 +196,7 @@ class LMEA(Algorithm):
         variable: int,
         other: int,
     ) -> bool:
-        """Compute correlation pair reference."""
+        """Evaluate paired perturbations used as a correlation reference."""
         for _ in range(self.n_cor):
             parent_index = torch.randint(0, population_size, (), device=problem.device)
             parent_dec = population.decs[parent_index]
@@ -225,7 +225,7 @@ class LMEA(Algorithm):
         variable: int,
         other: int,
     ) -> bool:
-        """Compute correlation pair related."""
+        """Evaluate paired perturbations under the related-variable hypothesis."""
         rng_state = self._device_rng_state(problem)
         if (
             self.n_cor <= 1
@@ -284,7 +284,7 @@ class LMEA(Algorithm):
     def _replace_rows(
         population: Population, offspring: Population, selected: torch.Tensor
     ) -> Population:
-        """Compute replace rows."""
+        """Replace selected population rows with offspring tensors in place."""
         return Population(
             torch.where(selected.unsqueeze(1), offspring.decs, population.decs),
             torch.where(selected.unsqueeze(1), offspring.objs, population.objs),
@@ -297,7 +297,7 @@ class LMEA(Algorithm):
         population: Population,
         distance_groups: list[torch.Tensor],
     ) -> Population:
-        """Compute convergence optimization."""
+        """Optimize distance-variable groups for objective convergence."""
         n, d = population.decs.shape
         con = convergence(population.objs)
         for group in distance_groups:
@@ -341,7 +341,7 @@ class LMEA(Algorithm):
 
     @staticmethod
     def _truncation(pop_obj: torch.Tensor, k: int) -> torch.Tensor:
-        """Compute truncation."""
+        """Remove crowded candidates by sequential nearest-distance deletion."""
         count = pop_obj.shape[0]
         fmax = pop_obj.max(dim=0).values
         fmin = pop_obj.min(dim=0).values
@@ -374,7 +374,7 @@ class LMEA(Algorithm):
 
     @classmethod
     def _environmental_selection(cls, population: Population, n: int) -> Population:
-        """Compute environmental selection."""
+        """Select a diverse nondominated population of the requested size."""
         front_no, max_front = nd_sort(population.objs, n_sort=n)
         selected = front_no < max_front
         last = torch.where(front_no == max_front)[0]
@@ -389,7 +389,7 @@ class LMEA(Algorithm):
         population: Population,
         position_variables: torch.Tensor,
     ) -> Population:
-        """Compute distribution optimization."""
+        """Optimize position-variable groups to improve front distribution."""
         n = population.decs.shape[0]
         mating = tournament_selection(2, n, convergence(population.objs))
         off_dec = population.decs[mating].clone()

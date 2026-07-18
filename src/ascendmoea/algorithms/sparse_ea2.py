@@ -31,7 +31,7 @@ class SparseEA2(Algorithm):
         parent1: torch.Tensor,
         parent2: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Compute grouped real operator."""
+        """Vary real decision values within variable groups."""
         offspring = sbx_first_child(parent1, parent2)
         n, d = offspring.shape
         order = torch.argsort(offspring, dim=1, stable=True)
@@ -62,7 +62,7 @@ class SparseEA2(Algorithm):
         parent_mask: torch.Tensor,
         fitness: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute operator."""
+        """Generate grouped sparse offspring decisions and masks."""
         half = parent_dec.shape[0] // 2
         parent1_dec = parent_dec[:half]
         parent2_dec = parent_dec[half : 2 * half]

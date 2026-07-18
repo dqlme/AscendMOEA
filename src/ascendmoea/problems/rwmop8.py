@@ -25,7 +25,7 @@ class RWMOP8(RWMOPBase):
 
     @staticmethod
     def _terms(x):
-        """Compute terms."""
+        """Unpack decisions and derive shared engineering terms."""
         x1, x2, x3, x4, x5, x6, x7 = x.unbind(dim=1)
         vmbp = 10.58 - 0.674 * x1 * x2 - 0.67275 * x2
         vfd = 16.45 - 0.489 * x3 * x7 - 0.843 * x5 * x6

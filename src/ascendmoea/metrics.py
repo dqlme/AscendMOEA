@@ -9,12 +9,12 @@ from .utils import pairwise_dist
 
 
 def _best(pop: Population):
-    """Compute best."""
+    """Extract the feasible nondominated approximation used by objective metrics."""
     return pop.best()
 
 
 def _cdist(a: torch.Tensor, b: torch.Tensor):
-    """Compute cdist."""
+    """Return the numerically corrected pairwise Euclidean distance matrix."""
     return pairwise_dist(a, b)
 
 
@@ -140,7 +140,7 @@ def dm(pop: Population, optimum) -> float:
     fmin = torch.min(optimum, dim=0).values
 
     def cal_grid(arr, maxv, minv, div):
-        """Compute cal grid."""
+        """Mark occupied coordinate bins for each objective dimension."""
         n, m = arr.shape
         d = torch.clamp(maxv - minv, min=torch.finfo(arr.dtype).eps) / max(div, 1)
         gloc = torch.ceil(
@@ -153,7 +153,7 @@ def dm(pop: Population, optimum) -> float:
         return h
 
     def cal_m(h, h_ref):
-        """Compute cal m."""
+        """Score continuity of occupied bins against the reference grid."""
         m = h.shape[0]
         ones = torch.ones((m, 1), dtype=torch.bool, device=h.device)
         h = torch.cat([ones, h, ones], dim=1)
@@ -190,7 +190,7 @@ def cpf(pop: Population, optimum) -> float:
         return float("nan")
 
     def map_to_cube(x, pf):
-        """Compute map to cube."""
+        """Map normalized front points onto the CPF unit-cube coordinates."""
         n, m = x.shape
         x = x - ((torch.sum(x, dim=1) - 1)[:, None] / m).expand(-1, m)
         pf = pf - ((torch.sum(pf, dim=1) - 1)[:, None] / m).expand(-1, m)
@@ -212,7 +212,7 @@ def cpf(pop: Population, optimum) -> float:
         return y**pw
 
     def coverage(arr, maxv):
-        """Compute coverage."""
+        """Estimate covered hypercube volume around mapped points."""
         n, m = arr.shape
         distance = torch.max(torch.abs(arr.unsqueeze(1) - arr.unsqueeze(0)), dim=2).values
         distance.fill_diagonal_(float("inf"))
@@ -285,7 +285,7 @@ def hv(pop: Population, optimum) -> float:
         return float(torch.prod(maxv - minv).item() * (1 - torch.mean(alive.to(p.dtype)).item()))
 
     def area_2d(points: torch.Tensor) -> torch.Tensor:
-        """Compute area 2d."""
+        """Integrate the dominated area of a two-objective point set."""
         order = torch.argsort(points[:, 0], stable=True)
         values = points[order]
         next_x = torch.cat([values[1:, 0], ref[:1]])

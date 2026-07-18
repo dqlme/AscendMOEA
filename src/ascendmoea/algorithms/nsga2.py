@@ -16,7 +16,7 @@ class NSGAII(Algorithm):
     def _environmental(self, pop: Population, n: int):
         # Constraints affect nondominated ranks, while crowding is measured
         # in the original objective space to preserve the reference semantics.
-        """Compute environmental."""
+        """Select survivors by constrained front rank and crowding distance."""
         front_no, max_f = nd_sort(pop.objs, pop.cons, n_sort=n)
         crowd_dis = crowding_distance(pop.objs, front_no)
 

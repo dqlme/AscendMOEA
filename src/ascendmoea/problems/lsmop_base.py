@@ -24,7 +24,7 @@ _FUNCTIONS = {
 
 
 def _component_value(block: torch.Tensor, function: str) -> torch.Tensor:
-    """Compute component value."""
+    """Evaluate one grouped distance component with its selected base function."""
     if function == "sphere":
         return torch.sum(block**2, dim=2)
     if function == "schwefel":

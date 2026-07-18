@@ -28,7 +28,7 @@ class SparseEA(Algorithm):
         parent_mask: torch.Tensor,
         fitness: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute operator."""
+        """Generate sparse offspring decisions and activation masks."""
         half = parent_dec.shape[0] // 2
         mask = sparse_mask_crossover(parent_mask[:half], parent_mask[half : 2 * half], fitness)
         mask = sparse_mask_mutation(mask, fitness)

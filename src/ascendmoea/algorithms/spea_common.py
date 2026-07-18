@@ -11,7 +11,7 @@ from ..utils import pairwise_dist, sequential_distance_truncation
 
 
 def subset_population(population: Population, index: torch.Tensor) -> Population:
-    """Compute subset population."""
+    """Select population rows while preserving all population fields."""
     index = index.to(torch.long)
     return Population(
         population.decs[index],
@@ -21,7 +21,7 @@ def subset_population(population: Population, index: torch.Tensor) -> Population
 
 
 def cal_fitness(pop_obj: torch.Tensor, pop_con: torch.Tensor | None = None) -> torch.Tensor:
-    """Compute cal fitness."""
+    """Calculate strength fitness with nearest-neighbor density."""
     n = pop_obj.shape[0]
     if n == 0:
         return torch.empty(0, dtype=pop_obj.dtype, device=pop_obj.device)
@@ -47,7 +47,7 @@ def cal_fitness(pop_obj: torch.Tensor, pop_con: torch.Tensor | None = None) -> t
 
 
 def truncation(pop_obj: torch.Tensor, delete_count: int) -> torch.Tensor:
-    """Compute truncation."""
+    """Choose candidates to remove by iterative distance comparison."""
     distance = pairwise_dist(pop_obj, pop_obj)
     return sequential_distance_truncation(distance, delete_count)
 
@@ -59,7 +59,7 @@ def environmental_selection(
     use_constraints: bool,
     sort_output: bool,
 ) -> tuple[Population, torch.Tensor]:
-    """Compute environmental selection."""
+    """Select SPEA2 survivors and return their scalar fitness."""
     fitness = cal_fitness(population.objs, population.cons if use_constraints else None)
     selected = fitness < 1
     selected_count = int(selected.sum().item())

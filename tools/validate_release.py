@@ -186,6 +186,7 @@ def count_package_resources(node, suffix: str) -> int:
 
 def validate_operators(device: torch.device) -> CheckResult:
     """Exercise every operator exported by the public operator namespace."""
+    seed_everything(42001, device)
     started = time.perf_counter()
     problem = DTLZ2(n=20, m=3, max_fe=200)
     problem.device = device
@@ -256,7 +257,14 @@ def validate_metrics(device: torch.device) -> CheckResult:
     started = time.perf_counter()
     problem = DTLZ2(n=20, m=3, max_fe=40)
     problem.device = device
-    population = problem.initialization()
+    decisions = torch.linspace(
+        0.05,
+        0.95,
+        steps=problem.N * problem.D,
+        dtype=problem.dtype,
+        device=device,
+    ).reshape(problem.N, problem.D)
+    population = problem.evaluate(decisions)
     objective_reference = problem.optimum
     decision_reference = population.decs.clone()
     values = {
@@ -282,7 +290,11 @@ def validate_metrics(device: torch.device) -> CheckResult:
         name="public_metric_surface",
         status="ok",
         elapsed_seconds=time.perf_counter() - started,
-        details={"metric_count": len(METRICS), "values": values},
+        details={
+            "metric_count": len(METRICS),
+            "input": "deterministic_linspace",
+            "values": values,
+        },
     )
 
 
@@ -343,15 +355,29 @@ def validate_problems(device: torch.device) -> list[CheckResult]:
     return rows
 
 
-def algorithm_case(name: str) -> tuple[str, dict[str, int]]:
-    """Return a lightweight compatible problem for an algorithm."""
+def algorithm_case(
+    name: str,
+) -> tuple[str, dict[str, int], dict[str, int | float]]:
+    """Return lightweight problem and algorithm options for one smoke run."""
     if name in CONSTRAINED:
-        return "CF1", {"n": 20, "d": 10, "max_fe": 180}
+        return "CF1", {"n": 20, "d": 10, "max_fe": 180}, {}
+    if name == "LMEA":
+        # Reduced analysis sampling keeps the smoke run short while leaving
+        # enough budget to enter the main evolutionary loop.
+        return (
+            "SMOP1",
+            {"n": 12, "d": 12, "max_fe": 600},
+            {"n_sel": 1, "n_per": 4, "n_cor": 1},
+        )
+    if name == "TS-SparseEA":
+        # Its default grouping stage evaluates 5 * D single-variable samples.
+        # A realistic smoke budget must exceed that mandatory setup cost.
+        return "SMOP1", {"n": 12, "d": 30, "max_fe": 2000}, {}
     if name in SPARSE:
-        return "SMOP1", {"n": 12, "d": 30, "max_fe": 180}
+        return "SMOP1", {"n": 12, "d": 30, "max_fe": 180}, {}
     if name in MULTIMODAL:
-        return "MMF1", {"n": 20, "max_fe": 160}
-    return "MMF1", {"n": 20, "max_fe": 120}
+        return "MMF1", {"n": 20, "max_fe": 160}, {}
+    return "MMF1", {"n": 20, "max_fe": 120}, {}
 
 
 def validate_algorithms(
@@ -363,9 +389,9 @@ def validate_algorithms(
     rows: list[CheckResult] = []
     names = [name for name in BUILTIN_ALGORITHM_NAMES if selected is None or name in selected]
     for position, name in enumerate(names):
-        problem_name, kwargs = algorithm_case(name)
-        problem = create_problem(problem_name, **kwargs)
-        algorithm = create_algorithm(name, save=1)
+        problem_name, problem_options, algorithm_options = algorithm_case(name)
+        problem = create_problem(problem_name, **problem_options)
+        algorithm = create_algorithm(name, save=1, **algorithm_options)
         result = Workflow(
             algorithm,
             problem,
@@ -377,6 +403,10 @@ def validate_algorithms(
         ).run()
         population = result.population
         require(len(population) > 0, f"{name} returned an empty population")
+        require(
+            result.evaluations >= problem.max_fe,
+            f"{name} terminated before reaching max_fe",
+        )
         assert_finite(name + " objectives", population.objs)
         assert_finite(name + " constraints", population.cons)
         rows.append(
@@ -387,8 +417,11 @@ def validate_algorithms(
                 elapsed_seconds=result.elapsed_seconds,
                 details={
                     "problem": problem_name,
+                    "max_fe": problem.max_fe,
                     "FE": result.evaluations,
+                    "budget_reached": result.evaluations >= problem.max_fe,
                     "population": len(population),
+                    "algorithm_options": algorithm_options,
                 },
             )
         )

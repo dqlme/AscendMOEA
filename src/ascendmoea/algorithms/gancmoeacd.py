@@ -25,7 +25,7 @@ class _CondGenerator(nn.Module):
     """Implement the _CondGenerator multi-objective evolutionary algorithm."""
 
     def __init__(self, latent_dim: int, m: int, d: int, hidden_dim: int):
-        """Initialize the instance."""
+        """Build the conditional generator network."""
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(latent_dim + m, hidden_dim),
@@ -37,7 +37,7 @@ class _CondGenerator(nn.Module):
         )
 
     def forward(self, z: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
-        """Compute forward."""
+        """Generate normalized decisions from latent noise and reference labels."""
         return self.net(torch.cat([z, w], dim=1))
 
 
@@ -45,7 +45,7 @@ class _CondDiscriminator(nn.Module):
     """Implement the _CondDiscriminator multi-objective evolutionary algorithm."""
 
     def __init__(self, m: int, d: int, hidden_dim: int):
-        """Initialize the instance."""
+        """Build the conditional feasibility discriminator network."""
         super().__init__()
         self.shared = nn.Sequential(
             nn.Linear(d + m, hidden_dim),
@@ -57,30 +57,30 @@ class _CondDiscriminator(nn.Module):
         self.cv = nn.Linear(hidden_dim, 1)
 
     def forward(self, x: torch.Tensor, w: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute forward."""
+        """Predict feasibility scores from decisions and reference labels."""
         h = self.shared(torch.cat([x, w], dim=1))
         return self.adv(h), F.softplus(self.cv(h)).squeeze(1)
 
 
 def _cv(cons: torch.Tensor) -> torch.Tensor:
-    """Compute cv."""
+    """Aggregate positive constraint violations for each individual."""
     return torch.sum(torch.clamp(cons, min=0.0), dim=1)
 
 
 def _normalize_dec(problem: Problem, dec: torch.Tensor) -> torch.Tensor:
-    """Compute normalize dec."""
+    """Map bounded decision vectors into the unit hypercube."""
     den = torch.clamp(problem.upper - problem.lower, min=1e-12)
     return torch.clamp((dec - problem.lower) / den, 0.0, 1.0)
 
 
 def _denormalize_dec(problem: Problem, dec_norm: torch.Tensor) -> torch.Tensor:
-    """Compute denormalize dec."""
+    """Map unit-hypercube decisions back to problem bounds."""
     dec = problem.lower + dec_norm * (problem.upper - problem.lower)
     return torch.minimum(torch.maximum(dec, problem.lower), problem.upper)
 
 
 def _reference_labels(objs: torch.Tensor, refs: torch.Tensor) -> torch.Tensor:
-    """Compute reference labels."""
+    """Associate objective vectors with their nearest reference directions."""
     zmin = torch.min(objs, dim=0, keepdim=True).values
     zmax = torch.max(objs, dim=0, keepdim=True).values
     obj_n = (objs - zmin) / torch.clamp(zmax - zmin, min=1e-12)
@@ -97,7 +97,7 @@ def _training_pool(
     refs: torch.Tensor,
     max_size: int,
 ) -> Population:
-    """Compute training pool."""
+    """Assemble balanced feasible and infeasible samples for GAN training."""
     pools = [p for p in (fa, da, fea) if p.decs.shape[0] > 0]
     if not pools:
         return _ensure_pop(problem, None)
@@ -133,7 +133,7 @@ def _training_pool(
 def _pick_sparse_reference_vectors(
     pool: Population, refs: torch.Tensor, max_k: int
 ) -> torch.Tensor:
-    """Compute pick sparse reference vectors."""
+    """Choose reference directions with low archive occupancy."""
     if max_k <= 0:
         return refs[:0]
     if pool.decs.shape[0] == 0:
@@ -149,7 +149,7 @@ def _pick_sparse_reference_vectors(
 
 
 def _pick_weak_reference_vectors(pool: Population, refs: torch.Tensor, max_k: int) -> torch.Tensor:
-    """Compute pick weak reference vectors."""
+    """Choose reference directions whose associated solutions have weak fitness."""
     if max_k <= 0:
         return refs[:0]
     if pool.decs.shape[0] == 0:
@@ -172,7 +172,7 @@ def _pick_weak_reference_vectors(pool: Population, refs: torch.Tensor, max_k: in
 
 
 def _final_feasible_output(pop: Population, n: int) -> Population:
-    """Compute final feasible output."""
+    """Return feasible nondominated solutions when the final archive permits."""
     cv = _cv(pop.cons)
     feasible_idx = torch.where(cv <= 0)[0]
     if feasible_idx.numel() == 0:
@@ -197,7 +197,7 @@ def _final_feasible_output(pop: Population, n: int) -> Population:
 
 
 def _lg(x: torch.Tensor, sigma: torch.Tensor | float) -> torch.Tensor:
-    """Compute lg."""
+    """Evaluate the logistic membership function used by fuzzy decomposition."""
     sigma_t = torch.as_tensor(sigma, dtype=x.dtype, device=x.device).clamp_min(1e-12)
     return torch.sigmoid(x / sigma_t)
 
@@ -210,7 +210,7 @@ def _fuzzy_decomposition_update(
     z: torch.Tensor,
     nr: int,
 ) -> Population:
-    """Compute fuzzy decomposition update."""
+    """Update decomposition incumbents with fuzzy constraint membership."""
     if cand.decs.shape[0] == 0:
         return dpop
 
@@ -278,7 +278,7 @@ class _ConditionalGAN:
         lr: float,
         cv_weight: float,
     ):
-        """Initialize the instance."""
+        """Create generator, discriminator, optimizers, and fixed dimensions."""
         self.problem = problem
         self.latent_dim = int(latent_dim)
         self.cv_weight = float(cv_weight)
@@ -294,7 +294,7 @@ class _ConditionalGAN:
     def train_steps(
         self, pool: Population, refs: torch.Tensor, epochs: int, batch_size: int
     ) -> None:
-        """Compute train steps."""
+        """Train generator and discriminator for the requested number of steps."""
         n = pool.decs.shape[0]
         if n < 8:
             return
@@ -347,7 +347,7 @@ class _ConditionalGAN:
 
     @torch.no_grad()
     def sample(self, refs: torch.Tensor) -> torch.Tensor:
-        """Compute sample."""
+        """Generate bounded candidate decisions for reference labels."""
         z = torch.randn(
             refs.shape[0], self.latent_dim, dtype=self.problem.dtype, device=self.problem.device
         )
@@ -356,7 +356,7 @@ class _ConditionalGAN:
 
     @torch.no_grad()
     def sample_best_per_ref(self, refs: torch.Tensor, candidates_per_ref: int = 3) -> torch.Tensor:
-        """Compute sample best per ref."""
+        """Generate candidates and retain the best prediction per reference direction."""
         if refs.shape[0] == 0:
             return torch.empty(
                 (0, self.problem.D), dtype=self.problem.dtype, device=self.problem.device
@@ -382,7 +382,7 @@ def _disc_filter_replace(
     dec_filter: torch.Tensor,
     refs: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute disc filter replace."""
+    """Filter generated candidates and replace weak archive representatives."""
     if gan is None or dec_filter.shape[0] == 0 or dec_keep.shape[0] == 0:
         return dec_filter
     with torch.no_grad():

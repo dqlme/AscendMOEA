@@ -12,13 +12,13 @@ from .spea_common import truncation
 
 
 def _subset(pop: Population, idx: torch.Tensor) -> Population:
-    """Compute subset."""
+    """Select population rows while preserving all population fields."""
     idx = idx.to(torch.long)
     return Population(pop.decs[idx], pop.objs[idx], pop.cons[idx])
 
 
 def _ensure_pop(problem: Problem, pop: Population | None) -> Population:
-    """Compute ensure pop."""
+    """Return a population object, creating an empty compatible batch if needed."""
     if pop is not None:
         return pop
     return Population(
@@ -29,7 +29,7 @@ def _ensure_pop(problem: Problem, pop: Population | None) -> Population:
 
 
 def _concat(a: Population, b: Population) -> Population:
-    """Compute concat."""
+    """Concatenate compatible populations along the individual dimension."""
     if a.decs.shape[0] == 0:
         return b
     if b.decs.shape[0] == 0:
@@ -51,13 +51,13 @@ def _truncation(pop_obj: torch.Tensor, k: int) -> torch.Tensor:
 
 
 def _crowding_distance_all(pop_obj: torch.Tensor) -> torch.Tensor:
-    """Compute crowding distance all."""
+    """Calculate crowding distance over the complete candidate set."""
     front = torch.ones(pop_obj.shape[0], dtype=pop_obj.dtype, device=pop_obj.device)
     return crowding_distance(pop_obj, front)
 
 
 def _domination_cal(pop: Population, add: int) -> torch.Tensor:
-    """Compute domination cal."""
+    """Calculate pairwise constraint-aware dominance relationships."""
     pop_obj = round_half_away_from_zero(pop.objs * 1e10) / 1e10
     cons = torch.sum(torch.clamp(pop.cons, min=0.0), dim=1)
 
@@ -85,7 +85,7 @@ def _domination_cal(pop: Population, add: int) -> torch.Tensor:
 def _forward_exploration_archive(
     fa: Population, off: Population, zmin: torch.Tensor, ns: int, mode: int
 ) -> Population:
-    """Compute forward exploration archive."""
+    """Update the forward archive according to its configured selection mode."""
     fa = _concat(fa, off)
     nd = _domination_cal(fa, 0)
     fa = _subset(fa, torch.where(nd)[0])
@@ -120,7 +120,7 @@ def _forward_exploration_archive(
 def _feasibility_exploitation_archive(
     fea: Population, off: Population, n: int, mode: int
 ) -> Population:
-    """Compute feasibility exploitation archive."""
+    """Update the feasibility archive according to its configured selection mode."""
     fea = _concat(fea, off)
     nd = _domination_cal(fea, 1)
     fea = _subset(fea, torch.where(nd)[0])
@@ -162,7 +162,7 @@ def _feasibility_exploitation_archive(
 def _diversity_enhancement_archive(
     da: Population, off: Population, zmin: torch.Tensor, ns: int
 ) -> Population:
-    """Compute diversity enhancement archive."""
+    """Update the diversity archive with reference-direction association."""
     s = _concat(da, off)
     nd = _domination_cal(s, 1)
     s = _subset(s, torch.where(nd)[0])

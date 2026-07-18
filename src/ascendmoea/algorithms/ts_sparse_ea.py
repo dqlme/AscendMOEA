@@ -42,7 +42,7 @@ class TSSparseEA(Algorithm):
         parent_mask: torch.Tensor,
         real: bool,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute operator."""
+        """Generate offspring values and masks for sparse evolution."""
         half = parent_mask.shape[0] // 2
         parent1 = parent_mask[:half]
         parent2 = parent_mask[half : 2 * half]
@@ -79,7 +79,7 @@ class TSSparseEA(Algorithm):
     def _match_independent(
         cls, dec: torch.Tensor, mask: torch.Tensor, problem: Problem
     ) -> torch.Tensor:
-        """Compute match independent."""
+        """Match each source row independently to its nearest candidate."""
         span = problem.upper - problem.lower
         safe_span = span.clamp_min(torch.finfo(problem.dtype).eps)
         normalized = (dec - problem.lower) / safe_span
@@ -92,7 +92,7 @@ class TSSparseEA(Algorithm):
     def _match_one_to_one(
         cls, dec: torch.Tensor, mask: torch.Tensor, problem: Problem
     ) -> torch.Tensor:
-        """Compute match one to one."""
+        """Construct a one-to-one minimum-distance row matching."""
         span = problem.upper - problem.lower
         safe_span = span.clamp_min(torch.finfo(problem.dtype).eps)
         normalized = (dec - problem.lower) / safe_span
@@ -124,7 +124,7 @@ class TSSparseEA(Algorithm):
     def _group_variables(
         self, problem: Problem, real: bool
     ) -> tuple[torch.Tensor, Population, torch.Tensor, torch.Tensor]:
-        """Compute group variables."""
+        """Partition decision variables into fitness-balanced groups."""
         fitness, temp_pop, temp_dec, temp_mask = variable_fitness(problem, keep_all_samples=False)
         gamma = int(math.ceil(problem.D / self.n_group))
         order = torch.argsort(fitness, stable=True)
@@ -144,7 +144,7 @@ class TSSparseEA(Algorithm):
     def _expand_group_mask(
         group_mask: torch.Tensor, group_membership: torch.Tensor
     ) -> torch.Tensor:
-        """Compute expand group mask."""
+        """Expand a group-level activation mask to decision columns."""
         dtype = torch.get_default_dtype()
         return (group_mask.to(dtype) @ group_membership.to(dtype)) > 0
 
@@ -156,7 +156,7 @@ class TSSparseEA(Algorithm):
         group_membership: torch.Tensor,
         reference_dec: torch.Tensor,
     ) -> Population:
-        """Compute evaluate group mask."""
+        """Evaluate decisions produced by a group-level activation mask."""
         mask = cls._expand_group_mask(group_mask, group_membership)
         return problem.evaluation(reference_dec.view(1, -1) * mask.to(problem.dtype))
 
@@ -166,7 +166,7 @@ class TSSparseEA(Algorithm):
         state: SparsePopulation,
         real: bool,
     ) -> SparsePopulation:
-        """Compute binary group optimization."""
+        """Search group-level masks within the allocated evaluation budget."""
         if real:
             reference = environmental_selection(
                 state.population,
