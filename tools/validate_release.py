@@ -74,8 +74,6 @@ CONSTRAINED = {
     "CCMO",
     "CMEGL",
     "CMOEACD",
-    "GANCMOEACD",
-    "MTCCMOEACD",
     "CMOEAMS",
     "EMCMO",
 }

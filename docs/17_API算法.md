@@ -19,8 +19,6 @@
 | 约束 | `CCMO` | `CCMO` | `(op_type=1, **kwargs)` |
 | 约束 | `CMEGL` | `CMEGL` | `(save=-10)` |
 | 约束 | `CMOEACD` | `CMOEACD` | `(e1=1, e2=1, **kwargs)` |
-| 约束 | `GANCMOEACD` | `GANCMOEACD` | `(e1=1, e2=1, gan_start=0.2, gan_interval=5, gan_epochs=10, latent_dim=32, hidden_dim=128, gan_lr=1e-3, cv_weight=1.0, **kwargs)` |
-| 约束 | `MTCCMOEACD` | `MTCCMOEACD` | `(e1=1, e2=1, migrate_rate=0.05, feasible_gate=0.2, **kwargs)` |
 | 约束 | `CMOEAMS` | `CMOEAMS` | `(op_type=1, lam=0.5, **kwargs)` |
 | 约束 | `EMCMO` | `EMCMO` | `(save=-10)` |
 | 多模态 | `HREA` | `HREA` | `(eps=0.3, p=0.5, **kwargs)` |
@@ -88,25 +86,6 @@
 | 3 | 参考向量关联 |
 
 两个参数都必须为 1、2 或 3。
-
-### `GANCMOEACD`
-
-在三档案搜索上加入条件生成器和约束预测判别器。除 `e1`、`e2` 外：
-
-| 参数 | 含义 |
-|---|---|
-| `gan_start` | 启用生成辅助时已消耗预算比例，范围 `[0,1]` |
-| `gan_interval` | 两次训练之间的代数，最小为 1 |
-| `gan_epochs` | 每次训练步数，最小为 1 |
-| `latent_dim` | 隐变量维数，内部最小为 2 |
-| `hidden_dim` | 隐藏层宽度，内部最小为 16 |
-| `gan_lr` | Adam 学习率，必须为正 |
-| `cv_weight` | 约束预测损失权重，必须非负 |
-
-### `MTCCMOEACD`
-
-在约束分解任务间迁移候选解。`e1`、`e2` 与 `CMOEACD` 相同；`migrate_rate` 是迁移
-比例，`feasible_gate` 是启用定向迁移的可行率阈值，两者范围为 `[0,1]`。
 
 ### `CMOEAMS`
 

@@ -12,7 +12,7 @@ def _report() -> dict[str, object]:
     return {
         "schema_version": 1,
         "package": "AscendMOEA",
-        "version": "0.1.0",
+        "version": "1.0.0",
         "device": "cpu",
         "counts": {"algorithms": 1, "metrics": 1},
         "status": "ok",

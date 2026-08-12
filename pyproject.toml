@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "AscendMOEA"
-version = "0.1.0"
+version = "1.0.0"
 description = "Tensorized multi-objective evolutionary optimization for Huawei Ascend NPUs and CPUs"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "LicenseRef-AscendMOEA-Research"
 license-files = ["LICENSE", "NOTICE.md"]
-authors = [{ name = "AscendMOEA Developers" }]
+authors = [{ name = "党乾龙" }]
 keywords = [
   "multi-objective optimization",
   "evolutionary computation",

@@ -218,5 +218,5 @@ list_problems() -> tuple[str, ...]
 | `synchronize(device)` | 等待设备队列完成 |
 
 环境变量包括 `ASCENDMOEA_DEVICE`、`ASCENDMOEA_NPU_INDEX`、
-`ASCENDMOEA_CPU_THREADS` 和 `ASCENDMOEA_DTYPE`。NPU 请求 `float64` 时会回退到
-`float32` 并发出警告。
+`ASCENDMOEA_CPU_THREADS` 和 `ASCENDMOEA_DTYPE`。NPU 执行使用 `float32`；如果请求
+`float64`，库会改用 `float32` 并发出警告。

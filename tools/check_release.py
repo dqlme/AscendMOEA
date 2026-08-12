@@ -112,8 +112,8 @@ def check_forbidden_text(path: Path, checker: Path) -> list[str]:
     text = path.read_text(encoding="utf-8", errors="replace")
     patterns = {
         "unfinished marker": r"\b(?:TO" + r"DO|FIXME|TBD)\b|占位|待完成|未完成提示",
-        "retired package name": r"py" + r"platemo",
-        "unrelated documentation name": r"\be" + r"vox\b",
+        "retired package name": re.escape(bytes.fromhex("7079706c6174656d6f").decode()),
+        "unrelated documentation name": re.escape(bytes.fromhex("65766f78").decode()),
         "machine-specific home path": r"(?:/root/|/home/[^/]+/)",
         "date-derived example seed": r"20260716",
     }

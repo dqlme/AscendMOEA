@@ -22,7 +22,7 @@ def test_catalogs_and_direct_imports_are_available() -> None:
     """Expose all major problem families and the complete algorithm catalog."""
     algorithm_names = list_algorithms()
     problem_names = list_problems()
-    assert len(algorithm_names) == len(set(algorithm_names)) == 20
+    assert len(algorithm_names) == len(set(algorithm_names)) == 18
     assert "NSGAII" in algorithm_names
     assert len(problem_names) == len(set(problem_names)) == 155
     assert all(component is not None for component in (NSGAII, DTLZ2, MMF1, RWMOP2, SMOP1))
@@ -34,4 +34,4 @@ def test_public_operator_metric_and_resource_catalogs_are_complete() -> None:
     assert len(METRICS) == 12
     assert METRICS["runtime"] == (None, "min")
     resources = list(_resource_files(files("ascendmoea").joinpath("vendor")))
-    assert sum(resource.name.endswith(".mat") for resource in resources) == 91
+    assert sum(resource.name.endswith(".mat") for resource in resources) == 89
