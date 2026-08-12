@@ -9,8 +9,7 @@ from ..utils import (
     merge_pop,
     nd_sort,
     operator_ga,
-    pairwise_dist,
-    sequential_distance_truncation,
+    sequential_euclidean_truncation,
     tournament_selection,
 )
 from .sparse_common import subset_population
@@ -29,10 +28,23 @@ def _cosine_similarity(points: torch.Tensor) -> torch.Tensor:
     return cosine * (1 - torch.eye(points.shape[0], dtype=points.dtype, device=points.device))
 
 
+def _maximum_similarity_candidates(cosine: torch.Tensor) -> torch.Tensor:
+    """Match MATLAB maximum selection when cosine rows contain NaNs."""
+    valid = ~torch.isnan(cosine)
+    comparable = torch.where(valid, cosine, torch.full_like(cosine, -torch.inf))
+    maximum = comparable.max()
+    candidates = torch.nonzero(valid & (comparable == maximum), as_tuple=False)
+    if candidates.shape[0] > 0:
+        return candidates
+    return torch.nonzero(
+        ~torch.eye(cosine.shape[0], dtype=torch.bool, device=cosine.device),
+        as_tuple=False,
+    )
+
+
 def _distance_truncation(pop_obj: torch.Tensor, delete_count: int) -> torch.Tensor:
     """Retain diverse candidates by sequential nearest-distance deletion."""
-    distance = pairwise_dist(pop_obj, pop_obj)
-    return sequential_distance_truncation(distance, delete_count)
+    return sequential_euclidean_truncation(pop_obj, delete_count=delete_count)
 
 
 class BiCo(Algorithm):
@@ -57,8 +69,7 @@ class BiCo(Algorithm):
         cosine = _cosine_similarity(normalized)
         deleted = torch.zeros(archive.objs.shape[0], dtype=torch.bool, device=archive.objs.device)
         for _ in range(archive.objs.shape[0] - n):
-            maximum = cosine.max()
-            candidates = torch.nonzero(cosine == maximum, as_tuple=False)
+            candidates = _maximum_similarity_candidates(cosine)
             pair = candidates[torch.randint(0, candidates.shape[0], (), device=archive.objs.device)]
             first, second = pair[0], pair[1]
             delete_first = (archive_cv[first] > archive_cv[second]) | (

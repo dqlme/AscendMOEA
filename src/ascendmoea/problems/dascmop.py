@@ -134,13 +134,11 @@ def _estimate_x1_das36(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     target = (x - y).reshape(-1)
     a = torch.linspace(0.0, 1.0, 10001, dtype=x.dtype, device=x.device)
     curve = a - 1.0 + torch.sqrt(a) - 0.5 * torch.abs(torch.sin(5 * torch.pi * a))
-    out = torch.empty_like(target)
-    chunk = 4096
-    for s in range(0, target.numel(), chunk):
-        t = target[s : s + chunk]
-        idx = torch.argmin(torch.abs(t[:, None] - curve[None, :]), dim=1)
-        out[s : s + chunk] = a[idx]
-    return out.reshape_as(x)
+    index = torch.argmin(
+        torch.abs(target[:, None] - curve[None, :]),
+        dim=1,
+    )
+    return a[index].reshape_as(x)
 
 
 class DASCMOP(Problem):

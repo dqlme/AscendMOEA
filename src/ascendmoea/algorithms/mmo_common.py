@@ -12,7 +12,7 @@ from ..utils import (
     merge_pop,
     nd_sort,
     pairwise_dist,
-    sequential_distance_truncation,
+    sequential_euclidean_truncation,
 )
 
 
@@ -103,8 +103,7 @@ def _lex_sort_indices(*columns: torch.Tensor, descending: bool = False) -> torch
 
 def _truncation_by_distance(*spaces: torch.Tensor, k: int) -> torch.Tensor:
     """Select removals by iterative lexicographic nearest-distance comparison."""
-    dist = sum(pairwise_dist(space, space) for space in spaces)
-    return sequential_distance_truncation(dist, k)
+    return sequential_euclidean_truncation(*spaces, delete_count=k)
 
 
 def _cmmo_fitness(pop: Population):
@@ -280,9 +279,7 @@ def _kdis(pop: Population, k: int | float):
     if n <= 1:
         return torch.ones(n, dtype=pop.decs.dtype, device=pop.decs.device)
     k = max(1, min(int(k), n - 1))
-    dist = pairwise_dist(pop.decs, pop.decs)
-    dist.fill_diagonal_(float("inf"))
-    dn_dec = torch.sum(torch.sort(dist, dim=0).values[:k, :], dim=0)
+    dn_dec = _sum_nearest_distance(pop.decs, k + 1)
     avg = torch.mean(dn_dec)
     avg = torch.where(avg == 0, torch.tensor(float("inf"), dtype=avg.dtype, device=avg.device), avg)
     return 1.0 / (1.0 + dn_dec / avg)

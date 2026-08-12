@@ -10,12 +10,10 @@ from .cmoead import CMOEAD
 from .cmoeams import CMOEAMS
 from .commea import CoMMEA
 from .emcmo import EMCMO
-from .gancmoeacd import GANCMOEACD
 from .hrea import HREA
 from .lmea import LMEA
 from .moea_psl import MOEAPSL
 from .moead import MOEAD
-from .mtccmoeacd import MTCCMOEACD
 from .nsga2 import NSGAII
 from .sparse_ea import SparseEA
 from .sparse_ea2 import SparseEA2
@@ -33,8 +31,6 @@ ALGORITHMS = ComponentRegistry(
         CCMO,
         CMEGL,
         CMOEACD,
-        GANCMOEACD,
-        MTCCMOEACD,
         CMOEAMS,
         EMCMO,
         HREA,
@@ -77,12 +73,10 @@ __all__ = [
     "CMOEAMS",
     "CoMMEA",
     "EMCMO",
-    "GANCMOEACD",
     "HREA",
     "LMEA",
     "MOEAD",
     "MOEAPSL",
-    "MTCCMOEACD",
     "NSGAII",
     "SPEA2",
     "SparseEA",

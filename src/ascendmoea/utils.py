@@ -13,7 +13,6 @@ from .device import real_dtype_for_device, select_device
 
 _UNIFORM_POINT_CACHE: dict[tuple[int, int, torch.dtype], torch.Tensor] = {}
 _PAIRWISE_DIRECT_ELEMENT_LIMIT = 8_000_000
-_PAIRWISE_CORRECTION_PAIR_LIMIT = 2_000_000
 _COMPILED_TRUNCATION_MIN_SIZE = 512
 _COMPILED_TRUNCATION_CALLS = 0
 _REFERENCE_TRUNCATION_CALLS = 0
@@ -582,6 +581,28 @@ def merge_pop(*pops: Population) -> Population:
     )
 
 
+def _pairwise_dist_centered(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    center: torch.Tensor,
+) -> torch.Tensor:
+    """Compute pairwise distances with a caller-supplied numerical center."""
+    centered_a = a - center
+    centered_b = b - center
+    product = centered_a @ centered_b.transpose(0, 1)
+    norm_a = torch.sum(centered_a * centered_a, dim=1, keepdim=True)
+    norm_b = torch.sum(centered_b * centered_b, dim=1).unsqueeze(0)
+    squared = norm_a + norm_b - 2 * product
+    magnitude = norm_a + norm_b + 2 * torch.abs(product)
+    threshold = 32 * torch.finfo(a.dtype).eps * torch.clamp(magnitude, min=1)
+    uncertain = squared <= threshold
+    row, column = torch.where(uncertain)
+    if row.numel():
+        difference = a[row] - b[column]
+        squared[row, column] = torch.sum(difference * difference, dim=1)
+    return torch.sqrt(torch.clamp(squared, min=0.0))
+
+
 def pairwise_dist(a: torch.Tensor, b: torch.Tensor):
     """Compute a numerically corrected Euclidean distance matrix.
 
@@ -598,27 +619,45 @@ def pairwise_dist(a: torch.Tensor, b: torch.Tensor):
     if a.shape[0] * b.shape[0] * a.shape[1] <= _PAIRWISE_DIRECT_ELEMENT_LIMIT:
         return torch.linalg.vector_norm(a.unsqueeze(1) - b.unsqueeze(0), dim=2)
     center = (a.sum(dim=0) + b.sum(dim=0)) / (a.shape[0] + b.shape[0])
-    centered_a = a - center
-    centered_b = b - center
-    product = centered_a @ centered_b.transpose(0, 1)
-    norm_a = torch.sum(centered_a * centered_a, dim=1, keepdim=True)
-    norm_b = torch.sum(centered_b * centered_b, dim=1).unsqueeze(0)
-    squared = norm_a + norm_b - 2 * product
-    magnitude = norm_a + norm_b + 2 * torch.abs(product)
-    threshold = 32 * torch.finfo(a.dtype).eps * torch.clamp(magnitude, min=1)
-    uncertain = squared <= threshold
-    rows_per_chunk = max(1, _PAIRWISE_CORRECTION_PAIR_LIMIT // max(b.shape[0], 1))
-    for start in range(0, a.shape[0], rows_per_chunk):
-        stop = min(start + rows_per_chunk, a.shape[0])
-        local_row, column = torch.where(uncertain[start:stop])
-        if local_row.numel():
-            row = local_row + start
-            difference = a[row] - b[column]
-            squared[row, column] = torch.sum(difference * difference, dim=1)
-    distance = torch.sqrt(torch.clamp(squared, min=0.0))
+    distance = _pairwise_dist_centered(a, b, center)
     if a.data_ptr() == b.data_ptr() and a.shape[0] == b.shape[0]:
         distance.fill_diagonal_(0.0)
     return distance
+
+
+def sequential_euclidean_truncation(
+    *spaces: torch.Tensor,
+    delete_count: int,
+) -> torch.Tensor:
+    """Apply exact truncation to summed Euclidean distance spaces.
+
+    Every distance space must contain the same individuals and use the same
+    device and dtype. The complete pairwise matrices are evaluated before the
+    deterministic deletion recurrence.
+    """
+    if not spaces:
+        raise ValueError("at least one distance space is required")
+    first = spaces[0]
+    if first.ndim != 2:
+        raise ValueError("distance spaces must be matrices")
+    n = first.shape[0]
+    for space in spaces:
+        if (
+            space.ndim != 2
+            or space.shape[0] != n
+            or space.device != first.device
+            or space.dtype != first.dtype
+        ):
+            raise ValueError(
+                "distance spaces must have equal row counts, devices, and dtypes"
+            )
+    if delete_count <= 0:
+        return torch.zeros(n, dtype=torch.bool, device=first.device)
+
+    distance = pairwise_dist(first, first)
+    for space in spaces[1:]:
+        distance.add_(pairwise_dist(space, space))
+    return sequential_distance_truncation(distance, delete_count)
 
 
 def sequential_distance_truncation(distance: torch.Tensor, delete_count: int) -> torch.Tensor:
@@ -674,10 +713,18 @@ def sequential_distance_truncation(distance: torch.Tensor, delete_count: int) ->
     cursor = torch.zeros(n, dtype=torch.long, device=distance.device)
     rows = torch.arange(n, device=distance.device)
 
+    def matlab_minimum_mask(values: torch.Tensor) -> torch.Tensor:
+        """Match MATLAB ascending order, where NaNs follow all numeric values."""
+        numeric = ~torch.isnan(values)
+        if torch.any(numeric):
+            minimum = torch.min(values[numeric])
+            return numeric & (values == minimum)
+        return torch.ones_like(values, dtype=torch.bool)
+
     for _ in range(min(int(delete_count), n)):
         remain = rows[active]
         nearest = sorted_distance[remain, cursor[remain]]
-        candidates = remain[nearest == torch.min(nearest)]
+        candidates = remain[matlab_minimum_mask(nearest)]
         if candidates.numel() > 1:
             alive_neighbors = active[neighbor_order[candidates]]
             sequences = sorted_distance[candidates][alive_neighbors].reshape(
@@ -686,7 +733,7 @@ def sequential_distance_truncation(distance: torch.Tensor, delete_count: int) ->
             tied = torch.arange(candidates.numel(), device=distance.device)
             for column in range(sequences.shape[1]):
                 values = sequences[tied, column]
-                tied = tied[values == torch.min(values)]
+                tied = tied[matlab_minimum_mask(values)]
                 if tied.numel() == 1:
                     break
             chosen = candidates[tied[0]]

@@ -33,14 +33,20 @@ if njit is not None:
         for _ in range(min(delete_count, n)):
             minimum = np.inf
             candidate_count = 0
+            have_numeric_minimum = False
             for row in range(n):
                 if not active[row]:
                     continue
                 value = sorted_distance[row, cursor[row]]
-                if value < minimum:
+                if np.isnan(value):
+                    if not have_numeric_minimum:
+                        candidates[candidate_count] = row
+                        candidate_count += 1
+                elif not have_numeric_minimum or value < minimum:
                     minimum = value
                     candidates[0] = row
                     candidate_count = 1
+                    have_numeric_minimum = True
                 elif value == minimum:
                     candidates[candidate_count] = row
                     candidate_count += 1
@@ -62,6 +68,17 @@ if njit is not None:
                         break
                     chosen_value = sorted_distance[chosen, chosen_cursor]
                     challenger_value = sorted_distance[challenger, challenger_cursor]
+                    chosen_nan = np.isnan(chosen_value)
+                    challenger_nan = np.isnan(challenger_value)
+                    if challenger_nan:
+                        if chosen_nan:
+                            chosen_cursor += 1
+                            challenger_cursor += 1
+                            continue
+                        break
+                    if chosen_nan:
+                        chosen = challenger
+                        break
                     if challenger_value < chosen_value:
                         chosen = challenger
                         break

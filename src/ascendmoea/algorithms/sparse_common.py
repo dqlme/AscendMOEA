@@ -56,11 +56,11 @@ def environmental_selection(
     mask: torch.Tensor,
     n: int,
     *,
-    fallback_to_dec: bool = False,
+    use_decision_uniqueness: bool = False,
 ) -> SparsePopulation:
     """Select sparse survivors by front rank, crowding, and mask diversity."""
     unique = unique_row_indices(population.objs)
-    if fallback_to_dec and unique.numel() == 1:
+    if use_decision_uniqueness and unique.numel() == 1:
         unique = unique_row_indices(population.decs)
     population = subset_population(population, unique)
     dec = dec[unique]

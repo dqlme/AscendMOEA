@@ -173,7 +173,7 @@ class TSSparseEA(Algorithm):
                 state.dec,
                 state.mask,
                 problem.M + 1,
-                fallback_to_dec=True,
+                use_decision_uniqueness=True,
             ).mask.to(problem.dtype)
         else:
             reference = torch.ones((1, problem.D), dtype=problem.dtype, device=problem.device)
@@ -200,7 +200,7 @@ class TSSparseEA(Algorithm):
                 reference_dec.view(1, -1).expand(problem.N, -1),
                 group_mask,
                 problem.N,
-                fallback_to_dec=True,
+                use_decision_uniqueness=True,
             )
 
             for _ in range(max(generations, 0)):
@@ -221,7 +221,7 @@ class TSSparseEA(Algorithm):
                     reference_dec.view(1, -1).expand(merged_count, -1),
                     torch.cat([inner.mask, off_group_mask], dim=0),
                     problem.N,
-                    fallback_to_dec=True,
+                    use_decision_uniqueness=True,
                 )
 
             off_mask = self._expand_group_mask(inner.mask, group_membership)
@@ -235,7 +235,7 @@ class TSSparseEA(Algorithm):
                 torch.cat([state.dec, off_dec, temp_dec], dim=0),
                 torch.cat([state.mask, off_mask, temp_mask], dim=0),
                 problem.N,
-                fallback_to_dec=True,
+                use_decision_uniqueness=True,
             )
         return state
 
@@ -263,7 +263,7 @@ class TSSparseEA(Algorithm):
             state.dec,
             state.mask,
             problem.N,
-            fallback_to_dec=True,
+            use_decision_uniqueness=True,
         )
 
         while self.not_terminated(problem, state.population, output, should_stop, should_pause):
@@ -277,5 +277,5 @@ class TSSparseEA(Algorithm):
                 torch.cat([state.dec, off_dec], dim=0),
                 torch.cat([state.mask, off_mask], dim=0),
                 problem.N,
-                fallback_to_dec=True,
+                use_decision_uniqueness=True,
             )

@@ -7,7 +7,7 @@ import math
 import torch
 
 from ..core import Population
-from ..utils import pairwise_dist, sequential_distance_truncation
+from ..utils import pairwise_dist, sequential_euclidean_truncation
 
 
 def subset_population(population: Population, index: torch.Tensor) -> Population:
@@ -48,8 +48,7 @@ def cal_fitness(pop_obj: torch.Tensor, pop_con: torch.Tensor | None = None) -> t
 
 def truncation(pop_obj: torch.Tensor, delete_count: int) -> torch.Tensor:
     """Choose candidates to remove by iterative distance comparison."""
-    distance = pairwise_dist(pop_obj, pop_obj)
-    return sequential_distance_truncation(distance, delete_count)
+    return sequential_euclidean_truncation(pop_obj, delete_count=delete_count)
 
 
 def environmental_selection(
