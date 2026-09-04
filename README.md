@@ -1,11 +1,39 @@
-# AscendMOEA
+<p align="right">
+  <a href="./README.md"><kbd>中文</kbd></a>
+  <a href="./README_en.md"><kbd>English</kbd></a>
+</p>
 
-AscendMOEA 是面向华为昇腾 NPU 与通用 CPU 的张量化多目标进化优化库。统一的 PyTorch
-数据模型覆盖种群、算法、问题、进化算子、质量指标、同步计时和运行监控；同一套扩展接口
-可用于无约束、约束、多模态和稀疏大规模优化。
+<p align="center">
+  <img src="./docs/AscendMOEA_logo.svg" alt="AscendMOEA" width="560">
+</p>
+
+<h1 align="center">AscendMOEA</h1>
+
+<p align="center">
+  面向华为昇腾 NPU 与通用 CPU 的高性能张量化多目标进化优化平台
+</p>
+
+<p align="center">
+  <a href="https://ascendmoea.readthedocs.io/zh-cn/latest/">中文网页文档</a> ·
+  <a href="https://ascendmoea.readthedocs.io/en/latest/">English Documentation</a>
+</p>
+
+AscendMOEA 以统一的 PyTorch 张量计算体系贯穿种群、算法、问题、进化算子、质量指标、
+同步计时与运行监控，让研究人员能够使用同一套接口完成 CPU 原型验证、昇腾 NPU 加速和
+可复现实验。平台覆盖无约束、约束、多模态及稀疏大规模多目标优化，并为算法研究、工程
+扩展和大规模实验提供完整而开放的基础设施。
 
 版本 `1.0.0` 提供 18 个算法、155 个基准或实际问题、19 个公开种群算子和 11 个质量
 指标。问题评价与主要种群操作面向完整批次，张量始终保留设备和精度信息。
+
+## 平台框架
+
+<p align="center">
+  <img src="./docs/AscendMOEA_framework.svg" alt="AscendMOEA 平台框架" width="100%">
+</p>
+
+AscendMOEA 将运行环境、张量化算子、算法组合和问题扩展统一在一条可复现执行链路中，
+既支持在通用 CPU 上便捷开发，也支持在华为昇腾 NPU 上直接扩展高性能优化实验。
 
 ## 安装
 
@@ -70,8 +98,9 @@ print("IGD", igd(result.population, problem.optimum))
 完整接口从 [API 索引](docs/15_API速查.md) 进入。首次使用建议依次阅读
 [安装与昇腾环境](docs/02_安装与昇腾环境.md)、
 [第一个优化任务](docs/03_第一个优化任务.md) 和
-[可运行案例集](docs/14_可运行案例集.md)。全部文档入口见
-[中文文档阅读路线](docs/00_阅读路线.md)。
+[可运行案例集](docs/14_可运行案例集.md)。全部入口见
+[中文文档阅读路线](docs/00_阅读路线.md)，也可直接访问
+[Read the Docs 中文文档](https://ascendmoea.readthedocs.io/zh-cn/latest/)。
 
 ## 安装验证
 

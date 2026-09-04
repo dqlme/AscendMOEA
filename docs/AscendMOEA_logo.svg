@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="430" height="92" viewBox="0 0 430 92" role="img" aria-labelledby="title desc">
+  <title id="title">AscendMOEA logo</title>
+  <desc id="desc">An original optically balanced woven A and M monogram beside the AscendMOEA wordmark.</desc>
+  <g transform="translate(0 6) scale(0.66)">
+    <path d="M30 70H73L79 84H25Z" fill="#b8323a"/>
+    <path d="M56 12L84 82L102 43L117 68L144 12H160L149 108H129L137 50L118 94H104L102 86L91 106H75L62 72L49 108H29L69 63L49 12Z" fill="#214f6d"/>
+    <path d="M102 43L117 68L110 84L96 57Z" fill="#3d7f9f"/>
+    <path d="M12 108L49 12H65L72 30L33 108Z" fill="#cf4148"/>
+    <path d="M49 12H65L72 30L58 43Z" fill="#e25a60"/>
+  </g>
+  <text x="122" y="63" font-family="Times New Roman, Times, serif" font-size="50" font-weight="700" letter-spacing="0">
+    <tspan fill="#c33f46">Ascend</tspan><tspan fill="#214f6d">MOEA</tspan>
+  </text>
+</svg>
