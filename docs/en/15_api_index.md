@@ -2,6 +2,10 @@
 
 This index lists stable public modules; full signatures, parameters, return types, and exceptions are documented across four reference pages. Symbols omitted from these pages or module-level `__all__` definitions are internal implementation details and may change across versions without deprecation notices.
 
+> **Python API Documentation**
+>
+> [Open the Python API documentation online](https://ascendmoea.readthedocs.io/en/latest/api/) for complete signatures, type annotations, and docstrings generated from the current source code.
+
 ## Core and Execution
 
 [Core and Workflow API](16_core_api.md) covers:

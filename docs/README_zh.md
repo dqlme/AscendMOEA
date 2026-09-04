@@ -99,8 +99,7 @@ print("IGD", igd(result.population, problem.optimum))
 
 ## 安装验证
 
-```bash
-python - <<'PY'
+```python
 import ascendmoea
 from ascendmoea.algorithms import NSGAII
 from ascendmoea.problems import DTLZ2
@@ -117,7 +116,6 @@ print("version", ascendmoea.__version__)
 print("device", result.device)
 print("population", len(result.population))
 print("evaluations", result.evaluations)
-PY
 ```
 
 输出应显示版本号、`cpu`、非空种群以及不小于预算的评价次数。昇腾环境可把

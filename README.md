@@ -105,8 +105,7 @@ Start with the [API index](docs/en/15_api_index.md), then read
 
 ## Installation verification
 
-```bash
-python - <<'PY'
+```python
 import ascendmoea
 from ascendmoea.algorithms import NSGAII
 from ascendmoea.problems import DTLZ2
@@ -123,7 +122,6 @@ print("version", ascendmoea.__version__)
 print("device", result.device)
 print("population", len(result.population))
 print("evaluations", result.evaluations)
-PY
 ```
 
 The output should show the version, `cpu`, a non-empty population, and an evaluation count

@@ -45,6 +45,17 @@ Combine algorithms, problem suites, quality indicators, monitoring, and repeated
 
 ::::
 
+## Platform architecture
+
+```{figure} ../AscendMOEA_framework.svg
+:alt: AscendMOEA platform architecture
+:class: framework-figure
+:target: ../AscendMOEA_framework.svg
+:width: 100%
+
+AscendMOEA unifies runtime control, tensorized operators, algorithm portfolios, and extensible problem suites in one reproducible execution pipeline.
+```
+
 ## Quick start
 
 ::::{tab-set}
@@ -109,5 +120,5 @@ Source code, issue tracking, and contribution entry point: [dqlme/AscendMOEA](ht
 17_algorithm_api
 18_problem_api
 19_analysis_api
-../api/index
+Python API Documentation <https://ascendmoea.readthedocs.io/en/latest/api/>
 ```
