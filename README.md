@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/AscendMOEA_logo.svg" alt="AscendMOEA" width="560">
+  <img src="./docs/AscendMOEA_logo_with_name.svg" alt="AscendMOEA" width="560">
 </p>
 
 <h1 align="center">AscendMOEA</h1>
@@ -98,7 +98,7 @@ all computation submitted by the run.
 
 Start with the [API index](docs/en/15_api_index.md), then read
 [Installation and Ascend environment](docs/en/02_installation.md),
-[Your first optimization task](docs/en/03_first_optimization.md), and
+[the simple end-to-end example](docs/en/03_first_optimization.md), and
 [Runnable examples](docs/en/14_examples.md). The complete sequence is available in the
 [English reading guide](docs/en/00_reading_guide.md) and the
 [online English documentation](https://ascendmoea.readthedocs.io/en/latest/).

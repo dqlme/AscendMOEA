@@ -1,4 +1,4 @@
-# First Optimization Task
+# Simple End-to-End Example
 
 ## Running NSGA-II on DTLZ2
 

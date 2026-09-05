@@ -18,7 +18,7 @@ hide_ai_links: true
     </div>
   </div>
   <div class="hero-mark" aria-hidden="true">
-    <img src="../_static/ascendmoea-mark.svg" alt="">
+    <img src="../AscendMOEA_logo.svg" alt="">
   </div>
 </section>
 ```

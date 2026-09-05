@@ -1,10 +1,10 @@
 # AscendMOEA Documentation Reading Roadmap
 
-## Entry Points by Task
+## Choose an Entry Point
 
 | Objective | Recommended Reading |
 | --- | --- |
-| Run algorithms on CPU or Ascend NPU | [Installation and Ascend Environment](02_installation.md), [First Optimization Task](03_first_optimization.md) |
+| Run algorithms on CPU or Ascend NPU | [Installation and Ascend Environment](02_installation.md), [Simple End-to-End Example](03_first_optimization.md) |
 | Select built-in algorithms and test problems | [Algorithm Directory and Selection](05_algorithm_catalog.md), [Problem Suite and Data Resources](06_problem_library.md) |
 | Invoke evolutionary operators standalone | [Tensorized Operators Manual](07_tensor_operators.md) |
 | Integrate custom problems | [Custom Problem Development](08_custom_problems.md) |
@@ -41,6 +41,6 @@ This structure allows users to jump directly into specific tasks without requiri
 | Troubleshooting Installation and Execution | 13 |
 | Full Examples and API References | 14 to 19 |
 
-## Versioning Conventions
+## Current Version
 
 This documentation corresponds to AscendMOEA `1.0.0`. Code snippets assume Python 3.9+. All objectives are formulated as minimization problems, and constraints follow the standard convention $g(x) \le 0$. When drawing formal performance conclusions, adhere strictly to the synchronization, warm-up, threading, and replication protocols specified in Chapter 11; single interactive runs must not be used as baseline benchmarks.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./AscendMOEA_logo.svg" alt="AscendMOEA" width="560">
+  <img src="./AscendMOEA_logo_with_name.svg" alt="AscendMOEA" width="560">
 </p>
 
 <h1 align="center">AscendMOEA</h1>
@@ -92,7 +92,7 @@ print("IGD", igd(result.population, problem.optimum))
 
 完整接口从 [API 索引](15_API速查.md) 进入。首次使用建议依次阅读
 [安装与昇腾环境](02_安装与昇腾环境.md)、
-[第一个优化任务](03_第一个优化任务.md) 和
+[全流程简单示例](03_第一个优化任务.md) 和
 [可运行案例集](14_可运行案例集.md)。全部入口见
 [中文文档阅读路线](00_阅读路线.md)，也可直接访问
 [Read the Docs 中文文档](https://ascendmoea.readthedocs.io/zh-cn/latest/)。
