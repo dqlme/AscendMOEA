@@ -97,13 +97,11 @@ These properties serve distinct analytical purposes: objective-space indicators 
 
 Underlying benchmark dataset files reside in the `ascendmoea/vendor` resource directory and are resolved internally relative to the installed package path. Inspect packaged data assets using the Python standard library:
 
-```bash
-python - <<'PY'
+```python
 from importlib.resources import files
 
 root = files("ascendmoea").joinpath("vendor")
 print(root)
-PY
 
 ```
 

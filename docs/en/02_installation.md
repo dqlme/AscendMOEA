@@ -57,8 +57,7 @@ uv pip install -e /path/to/AscendMOEA --no-deps
 
 ## Installation Verification
 
-```bash
-python - <<'PY'
+```python
 import torch
 import ascendmoea
 
@@ -67,7 +66,6 @@ print("torch", torch.__version__)
 print("npu_available", ascendmoea.npu_is_available())
 print("algorithms", len(ascendmoea.list_algorithms()))
 print("problems", len(ascendmoea.list_problems()))
-PY
 
 ```
 
