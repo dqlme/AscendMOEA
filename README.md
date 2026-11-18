@@ -1,38 +1,20 @@
-<p align="center">
-  <img src="./docs/AscendMOEA_logo_with_name.svg" alt="AscendMOEA" width="560">
-</p>
+<p align="center"><img src="./docs/AscendMOEA_logo_with_name.svg" alt="AscendMOEA" width="560"></p>
 
 <h1 align="center">AscendMOEA</h1>
 
-<p align="center">
-  High-performance tensorized multi-objective evolutionary optimization for Huawei Ascend NPUs and CPUs
-</p>
+<p align="center">High-performance tensorized multi-objective evolutionary optimization for Huawei Ascend NPUs and CPUs</p>
 
-<p align="center">
-  <a href="./docs/README_zh.md">中文</a> ·
-  <a href="https://ascendmoea.readthedocs.io/en/latest/">Documentation</a>
-</p>
+<p align="center"><a href="./docs/README_zh.md">中文</a> · <a href="https://ascendmoea.readthedocs.io/en/latest/">Documentation</a></p>
 
-AscendMOEA is a high-performance, tensorized platform for multi-objective evolutionary
-optimization on Huawei Ascend NPUs and general-purpose CPUs. Its unified PyTorch tensor
-execution model connects populations, algorithms, problems, evolutionary operators,
-quality indicators, synchronized timing, and runtime monitoring through one consistent
-interface. Researchers can move from CPU prototyping to Ascend NPU acceleration and
-reproducible large-scale experiments without rebuilding their workflow.
+AscendMOEA is a high-performance, tensorized platform for multi-objective evolutionary optimization on Huawei Ascend NPUs and general-purpose CPUs. Its unified PyTorch tensor execution model connects populations, algorithms, problems, evolutionary operators, quality indicators, synchronized timing, and runtime monitoring through one consistent interface. Researchers can move from CPU prototyping to Ascend NPU acceleration and reproducible large-scale experiments without rebuilding their workflow.
 
-Version `1.0.0` includes 18 algorithms, 155 benchmark or real-world problems, 19 public
-population operators, and 11 quality indicators. Problem evaluation and core population
-operations are batch-oriented, while tensors retain their device and precision metadata.
+Version `1.0.0` includes 18 algorithms, 155 benchmark or real-world problems, 19 public population operators, and 11 quality indicators. Problem evaluation and core population operations are batch-oriented, while tensors retain their device and precision metadata.
 
 ## Platform architecture
 
-<p align="center">
-  <img src="./docs/AscendMOEA_framework.svg" alt="AscendMOEA platform architecture" width="100%">
-</p>
+<p align="center"><img src="./docs/AscendMOEA_framework.svg" alt="AscendMOEA platform architecture" width="100%"></p>
 
-AscendMOEA unifies runtime and hardware control, tensorized operators, algorithm portfolios,
-and extensible problem suites in a reproducible execution pipeline. The same platform supports
-convenient CPU development and scalable high-performance experiments on Huawei Ascend NPUs.
+AscendMOEA unifies runtime and hardware control, tensorized operators, algorithm portfolios, and extensible problem suites in a reproducible execution pipeline. The same platform supports convenient CPU development and scalable high-performance experiments on Huawei Ascend NPUs.
 
 ## Installation
 
@@ -49,9 +31,7 @@ python -m pip install ".[experiment]"
 python -m pip install ".[plot]"
 ```
 
-An Ascend environment requires mutually compatible drivers, CANN, PyTorch, and `torch_npu`.
-After loading the CANN environment, use `--no-deps` to avoid replacing the adapted PyTorch
-installation:
+An Ascend environment requires mutually compatible drivers, CANN, PyTorch, and `torch_npu`. After loading the CANN environment, use `--no-deps` to avoid replacing the adapted PyTorch installation:
 
 ```bash
 source /usr/local/Ascend/nnrt/set_env.sh
@@ -82,9 +62,7 @@ print("HV", hv(result.population, problem.optimum))
 print("IGD", igd(result.population, problem.optimum))
 ```
 
-In a configured Ascend environment, change `device="cpu"` to `device="npu:0"`. The standard
-workflow synchronizes the device queue before and after timing, so `elapsed_seconds` covers
-all computation submitted by the run.
+In a configured Ascend environment, change `device="cpu"` to `device="npu:0"`. The standard workflow synchronizes the device queue before and after timing, so `elapsed_seconds` covers all computation submitted by the run.
 
 ## Public modules
 
@@ -96,12 +74,7 @@ all computation submitted by the run.
 - `ascendmoea.experiment`: reproducible repeated experiments, summaries, and non-parametric statistics.
 - `ascendmoea.plotting`: objective-space, decision-space, and metric-curve visualization.
 
-Start with the [API index](docs/en/15_api_index.md), then read
-[Installation and Ascend environment](docs/en/02_installation.md),
-[the simple end-to-end example](docs/en/03_first_optimization.md), and
-[Runnable examples](docs/en/14_examples.md). The complete sequence is available in the
-[English reading guide](docs/en/00_reading_guide.md) and the
-[online English documentation](https://ascendmoea.readthedocs.io/en/latest/).
+Start with the [API index](docs/en/15_api_index.md), then read [Installation and Ascend environment](docs/en/02_installation.md), [the simple end-to-end example](docs/en/03_first_optimization.md), and [Runnable examples](docs/en/14_examples.md). The complete sequence is available in the [English reading guide](docs/en/00_reading_guide.md) and the [online English documentation](https://ascendmoea.readthedocs.io/en/latest/).
 
 ## Installation verification
 
@@ -124,13 +97,19 @@ print("population", len(result.population))
 print("evaluations", result.evaluations)
 ```
 
-The output should show the version, `cpu`, a non-empty population, and an evaluation count
-that is not below the budget. In an Ascend environment, change `device="cpu"` to
-`device="npu:0"` after loading CANN as described in
-[Installation and Ascend environment](docs/en/02_installation.md).
+The output should show the version, `cpu`, a non-empty population, and an evaluation count that is not below the budget. In an Ascend environment, change `device="cpu"` to `device="npu:0"` after loading CANN as described in [Installation and Ascend environment](docs/en/02_installation.md).
 
 ## License
 
-This project is released under the non-commercial research and educational terms in
-`LICENSE`. Required attribution and third-party conditions for algorithms, benchmarks,
-and data are documented in `NOTICE.md`; read both files before use or redistribution.
+This project is released under the non-commercial research and educational terms in `LICENSE`. Required attribution and third-party conditions for algorithms, benchmarks, and data are documented in `NOTICE.md`. Read both files before use or redistribution.
+
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/#dqlme/AscendMOEA&amp;Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=dqlme/AscendMOEA&amp;type=Date&amp;theme=dark">
+      <img src="https://api.star-history.com/svg?repos=dqlme/AscendMOEA&amp;type=Date" alt="AscendMOEA Star History" width="100%">
+    </picture>
+  </a>
+</p>
