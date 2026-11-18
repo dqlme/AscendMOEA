@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   cpu-validation:
-    runs-on: ubuntu-latest
+    # Match a runner image with builds for both Python versions in the matrix.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
